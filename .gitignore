@@ -1,0 +1,38 @@
+# ── 依赖与构建产物 ──────────────────────────────────────────
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# ── 数据库与本地数据（API Key 存在 repair.db 里，绝不提交） ──
+server/data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ── 客户现场照片与附件（含现场设备信息，禁止提交） ──────────
+server/uploads/
+
+# ── 自动备份（数据库快照同样含密钥） ────────────────────────
+server/backups/
+
+# ── 独立测试库副本（VACUUM INTO 产物，测完整个目录删掉） ─────
+server/verify/.db/
+server/verify/*-out.json
+server/verify/*-out.txt
+
+# ── 环境变量、密钥与本地模型配置 ────────────────────────────
+.env
+.env.*
+*.pem
+*.key
+# CodeBuddy 本地模型配置可能写入 API Key，一律排除
+.codebuddy/
+*.codebuddy-model*.json
+
+# ── 日志与系统临时文件 ──────────────────────────────────────
+*.log
+.DS_Store
+Thumbs.db

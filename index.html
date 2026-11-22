@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<!--
+  Aesthetic Direction: B. 极简瑞士风 × 工业仪表盘（定制）
+  Display Font: Space Grotesk  |  Body Font: Noto Sans SC  |  Mono: JetBrains Mono
+  Primary: #1B2027（石墨黑）  |  Accent: #D85B2A（信号橙）  |  Bg: #F4F2ED（暖纸色）
+  Texture: engineering grid（工程网格）+ 角落微渐变 + 大字号水印
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>主板维修协助台 · MBR Repair Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --font-display:'Space Grotesk','Noto Sans SC',sans-serif;
+  --font-body:'Noto Sans SC','Space Grotesk',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --color-bg:#F4F2ED;
+  --color-surface:#FFFFFF;
+  --color-surface-2:#FBF9F5;
+  --color-ink:#1A1E24;
+  --color-muted:#737B86;
+  --color-line:#E4E0D8;
+  --color-primary:#1B2027;
+  --color-primary-soft:#2B323B;
+  --color-accent:#D85B2A;
+  --color-accent-soft:#FBEEE7;
+  --color-success:#2E8B65;
+  --color-success-soft:#E7F4EE;
+  --color-warning:#C58A20;
+  --color-warning-soft:#FCF3E0;
+  --color-danger:#C4453B;
+  --color-danger-soft:#FBEAE8;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(27,32,39,.04),0 10px 28px rgba(27,32,39,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  font-family:var(--font-body);
+  color:var(--color-ink);
+  background:var(--color-bg);
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+button,input,textarea,select{font-family:inherit}
+button{cursor:pointer}
+svg{display:block}
+
+/* ---------- Layout ---------- */
+.app{display:flex;height:100vh;width:100%;overflow:hidden}
+.sidebar{
+  width:268px;flex-shrink:0;background:var(--color-primary);color:#C7CDD6;
+  display:flex;flex-direction:column;position:relative;overflow:hidden;z-index:10;
+}
+.sidebar::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.026) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.026) 1px,transparent 1px);
+  background-size:26px 26px;
+}
+.sidebar::after{
+  content:"";position:absolute;right:-60px;top:-70px;width:200px;height:200px;border-radius:50%;
+  background:radial-gradient(circle,rgba(216,91,42,.16),transparent 68%);pointer-events:none;
+}
+.sidebar>*{position:relative;z-index:1}
+
+.brand{display:flex;align-items:center;gap:11px;padding:22px 20px 19px;border-bottom:1px solid rgba(255,255,255,.085)}
+.brand-mark{
+  width:38px;height:38px;border:1px solid rgba(216,91,42,.55);border-radius:9px;
+  display:grid;place-items:center;color:#E87543;background:rgba(216,91,42,.11);flex-shrink:0;
+}
+.brand-mark svg{width:21px;height:21px}
+.brand-title{font-family:var(--font-display);font-size:15px;font-weight:700;color:#F5F6F7;letter-spacing:.01em}
+.brand-sub{font-family:var(--font-mono);font-size:9.5px;color:#7D8794;letter-spacing:.14em;margin-top:3px}
+
+.nav{padding:18px 12px 8px;display:flex;flex-direction:column;gap:3px}
+.nav-label{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.18em;color:#626C79;padding:0 10px 9px}
+.nav-item{
+  display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;
+  cursor:pointer;color:#A7AFBA;font-size:13px;font-weight:500;transition:.18s;
+  border:1px solid transparent;position:relative;user-select:none;
+}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:rgba(216,91,42,.14);color:#F8EDE7;border-color:rgba(216,91,42,.3)}
+.nav-item.active::before{content:"";position:absolute;left:-12px;top:9px;bottom:9px;width:3px;background:var(--color-accent);border-radius:0 3px 3px 0}
+.nav-item svg{width:17px;height:17px;flex-shrink:0}
+.nav-badge{margin-left:auto;font-family:var(--font-mono);font-size:10px;background:var(--color-accent);color:#fff;padding:2px 7px;border-radius:20px;line-height:1.4}
+
+.filter-section{padding:10px 12px 14px;overflow-y:auto;flex:1;min-height:0}
+.filter-head{display:flex;align-items:center;justify-content:space-between;padding:0 10px 9px}
+.filter-head span{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.18em;color:#626C79}
+.filter-head button{background:none;border:none;color:#7C8896;font-size:11px;padding:0}
+.filter-head button:hover{color:var(--color-accent)}
+.model-list{display:flex;flex-direction:column;gap:1px}
+.model-item{
+  display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px;cursor:pointer;
+  font-family:var(--font-mono);font-size:11px;color:#98A2AF;transition:.15s;white-space:nowrap;
+}
+.model-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.model-item.active{background:rgba(255,255,255,.1);color:#fff}
+.model-item .dot{width:5px;height:5px;border-radius:50%;background:#48515D;flex-shrink:0}
+.model-item.active .dot{background:var(--color-accent);box-shadow:0 0 0 3px rgba(216,91,42,.18)}
+.model-item .cnt{margin-left:auto;color:#59626E;font-size:10px}
+.model-item.active .cnt{color:#B9C1CB}
+.sidebar-footer{padding:13px 18px 16px;border-top:1px solid rgba(255,255,255,.085)}
+.role-btn{
+  width:100%;display:flex;align-items:center;justify-content:space-between;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
+  color:#B6BEC9;padding:8px 10px;border-radius:7px;font-size:11px;margin-bottom:10px;transition:.18s;
+}
+.role-btn:hover{border-color:rgba(216,91,42,.55);color:#fff}
+.role-tag{font-family:var(--font-mono);font-size:10px;color:#E87543}
+.foot-line{font-family:var(--font-mono);font-size:9.5px;color:#59626E;letter-spacing:.05em;display:flex;justify-content:space-between}
+
+.main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+.topbar{
+  height:66px;flex-shrink:0;background:rgba(255,255,255,.88);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--color-line);display:flex;align-items:center;gap:13px;
+  padding:0 26px;z-index:6;
+}
+.crumb{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--color-ink);white-space:nowrap}
+.crumb small{display:block;font-family:var(--font-body);font-size:10.5px;color:var(--color-muted);font-weight:400;margin-top:2px;letter-spacing:.01em}
+.topbar-spacer{flex:1}
+.search-wrap{position:relative;width:min(280px,30vw)}
+.search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--color-muted);pointer-events:none}
+.search-wrap input{
+  width:100%;padding:9px 12px 9px 34px;border:1px solid var(--color-line);border-radius:8px;
+  background:var(--color-surface-2);font-size:12.5px;outline:none;transition:.18s;color:var(--color-ink);
+}
+.search-wrap input:focus{border-color:var(--color-accent);background:#fff;box-shadow:0 0 0 3px rgba(216,91,42,.1)}
+.sel{
+  padding:9px 26px 9px 11px;border:1px solid var(--color-line);border-radius:8px;
+  background:var(--color-surface-2);font-size:12px;color:var(--color-ink);outline:none;cursor:pointer;
+  max-width:165px;transition:.18s;
+}
+.sel:focus{border-color:var(--color-accent)}
+.clear-btn{
+  padding:8px 11px;border:1px solid var(--color-line);border-radius:8px;background:var(--color-surface-2);
+  color:var(--color-muted);font-size:11.5px;transition:.18s;white-space:nowrap;
+}
+.clear-btn:hover{color:var(--color-accent);border-color:var(--color-accent)}
+.mini-search{
+  width:210px;padding:9px 12px;border:1px solid var(--color-line);border-radius:8px;
+  background:var(--color-surface-2);font-size:12px;color:var(--color-ink);outline:none;transition:.18s;
+}
+.mini-search:focus{border-color:var(--color-accent);background:#fff;box-shadow:0 0 0 3px rgba(216,91,42,.09)}
+
+.view-container{flex:1;position:relative;overflow:hidden;min-height:0}
+.view{position:absolute;inset:0;display:none;flex-direction:column;min-height:0}
+.view.active{display:flex}
+
+/* ---------- Chat view ---------- */
+.chat-thread{
+  flex:1;overflow-y:auto;padding:30px 34px 16px;scroll-behavior:smooth;
+  background-color:var(--color-bg);
+  background-image:
+    radial-gradient(circle at 92% 4%,rgba(216,91,42,.055),transparent 30%),
+    linear-gradient(rgba(27,32,39,.032) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(27,32,39,.032) 1px,transparent 1px);
+  background-size:auto,30px 30px,30px 30px;
+}
+.chat-thread::-webkit-scrollbar,.library-grid::-webkit-scrollbar,.upload-view::-webkit-scrollbar,.modal-body::-webkit-scrollbar{width:9px}
+.chat-thread::-webkit-scrollbar-thumb,.library-grid::-webkit-scrollbar-thumb,.upload-view::-webkit-scrollbar-thumb,.modal-body::-webkit-scrollbar-thumb{background:#D8D3C9;border-radius:20px;border:3px solid transparent;background-clip:content-box}
+
+.welcome{position:relative;max-width:820px;margin:4vh auto 0;padding:22px 8px 30px}
+.watermark{
+  position:absolute;right:-6px;top:-46px;font-family:var(--font-display);font-size:180px;font-weight:700;
+  line-height:1;color:rgba(27,32,39,.035);pointer-events:none;user-select:none;letter-spacing:-.06em;
+}
+.welcome-mark{
+  width:54px;height:54px;border-radius:13px;border:1px solid rgba(216,91,42,.4);
+  background:var(--color-accent-soft);color:var(--color-accent);display:grid;place-items:center;margin-bottom:24px;
+}
+.welcome-mark svg{width:28px;height:28px}
+.welcome-kicker{font-family:var(--font-mono);font-size:11px;letter-spacing:.24em;color:var(--color-accent);margin-bottom:14px}
+.welcome-title{font-family:var(--font-display);font-size:clamp(32px,4vw,52px);line-height:1.18;font-weight:700;margin:0 0 18px;letter-spacing:-.02em;color:var(--color-ink)}
+.welcome-title span{color:var(--color-accent)}
+.welcome-desc{font-size:14px;line-height:1.9;color:var(--color-muted);max-width:560px;margin:0 0 30px}
+.suggest-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:#9AA1AA;margin-bottom:11px}
+.suggestions{display:flex;flex-wrap:wrap;gap:9px}
+.chip{
+  border:1px solid var(--color-line);background:var(--color-surface);border-radius:100px;
+  padding:8px 15px;font-size:12.5px;color:#4B535E;transition:.18s;box-shadow:0 1px 2px rgba(0,0,0,.02);
+}
+.chip:hover{border-color:var(--color-accent);color:var(--color-accent);transform:translateY(-2px);box-shadow:0 6px 16px rgba(216,91,42,.1)}
+.chip span{color:#B4BAC2;margin-right:6px;font-family:var(--font-mono);font-size:10px}
+
+.msg{display:flex;gap:13px;margin-bottom:26px;animation:rise .3s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.msg.user{flex-direction:row-reverse}
+.msg-avatar{width:34px;height:34px;border-radius:9px;flex-shrink:0;display:grid;place-items:center;font-size:12px;font-weight:700}
+.user-av{background:var(--color-primary);color:#fff;font-family:var(--font-mono)}
+.bot-av{background:var(--color-accent-soft);color:var(--color-accent);border:1px solid rgba(216,91,42,.22)}
+.bot-av svg{width:18px;height:18px}
+.msg-body{max-width:min(760px,84%);min-width:0}
+.msg-bubble{padding:13px 17px;border-radius:12px;font-size:13.5px;line-height:1.8;word-break:break-word}
+.msg.user .msg-bubble{background:var(--color-primary);color:#F2F4F6;border-bottom-right-radius:3px}
+.msg.assistant .msg-bubble{background:var(--color-surface);border:1px solid var(--color-line);border-bottom-left-radius:3px;box-shadow:var(--shadow);color:var(--color-ink)}
+.bot-head{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--color-accent);margin-bottom:6px}
+.msg-time{font-family:var(--font-mono);font-size:10px;color:#A6ACB4;margin-top:7px;padding:0 3px}
+.msg.user .msg-time{text-align:right}
+
+.hit{
+  border:1px solid var(--color-line);border-radius:11px;background:var(--color-surface);
+  margin-top:11px;overflow:hidden;box-shadow:var(--shadow);transition:.18s;cursor:pointer;
+}
+.hit:hover{border-color:var(--color-accent);transform:translateY(-1px)}
+.hit-head{display:flex;align-items:center;gap:9px;padding:11px 14px;background:var(--color-surface-2);border-bottom:1px solid var(--color-line)}
+.model-badge{font-family:var(--font-mono);font-size:10.5px;color:#F3F5F7;background:var(--color-primary);padding:4px 9px;border-radius:5px;white-space:nowrap}
+.hit-customer{font-size:11.5px;color:var(--color-muted)}
+.hit-date{font-family:var(--font-mono);font-size:10px;color:#A1A7AF;margin-left:auto}
+.score-wrap{display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;color:var(--color-accent)}
+.score-bar{width:44px;height:3px;background:#E8E3DA;border-radius:3px;overflow:hidden}
+.score-bar i{display:block;height:100%;background:var(--color-accent);border-radius:3px}
+.hit-body{padding:13px 14px;display:grid;gap:9px}
+.hit-row{display:flex;gap:10px;font-size:12.5px;line-height:1.7}
+.hit-key{flex-shrink:0;width:58px;color:#9BA1A9;font-size:11.5px;font-weight:500}
+.hit-val{color:#363E48;min-width:0}
+.hit-tags{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 13px}
+.tag{font-size:10.5px;color:#7A828C;background:#F0EDE6;border-radius:4px;padding:3px 8px}
+.tag.hot{color:var(--color-accent);background:var(--color-accent-soft)}
+.msg-actions{display:flex;align-items:center;gap:10px;margin-top:9px;font-size:11px;color:var(--color-muted);flex-wrap:wrap}
+.msg-actions button{border:1px solid var(--color-line);background:var(--color-surface);border-radius:6px;padding:5px 10px;color:var(--color-accent);font-size:11px;transition:.18s}
+.msg-actions button:hover{border-color:var(--color-accent);background:var(--color-accent-soft)}
+.filter-pill{font-family:var(--font-mono);font-size:10px;background:#EFECE5;border-radius:4px;padding:3px 7px;color:#5E6670}
+
+.empty-hint{
+  border:1px dashed var(--color-line);border-radius:10px;padding:16px;margin-top:11px;
+  font-size:12.5px;color:var(--color-muted);line-height:1.8;background:var(--color-surface-2);
+}
+.typing{display:flex;gap:5px;padding:6px 2px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--color-accent);animation:blink 1.1s infinite}
+.typing i:nth-child(2){animation-delay:.18s}.typing i:nth-child(3){animation-delay:.36s}
+@keyframes blink{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+.chat-compose{
+  flex-shrink:0;padding:15px 34px 20px;background:rgba(255,255,255,.92);
+  border-top:1px solid var(--color-line);backdrop-filter:blur(8px);
+}
+.compose-box{
+  display:flex;align-items:flex-end;gap:12px;background:var(--color-surface);
+  border:1px solid var(--color-line);border-radius:12px;padding:8px 9px 8px 15px;
+  box-shadow:var(--shadow);transition:.18s;max-width:900px;margin:0 auto;
+}
+.compose-box:focus-within{border-color:var(--color-accent);box-shadow:0 0 0 3px rgba(216,91,42,.09),var(--shadow)}
+.compose-box textarea{
+  flex:1;resize:none;border:none;outline:none;background:transparent;font-size:13.5px;line-height:1.7;
+  color:var(--color-ink);max-height:120px;min-height:26px;padding:5px 0;
+}
+.compose-box textarea::placeholder{color:#AEB4BC}
+.send-btn{
+  width:38px;height:38px;border-radius:9px;border:none;background:var(--color-accent);color:#fff;
+  display:grid;place-items:center;flex-shrink:0;transition:.18s;
+}
+.send-btn:hover{background:#C44F22;transform:translateY(-1px)}
+.send-btn:active{transform:none}
+.send-btn svg{width:17px;height:17px}
+.compose-tip{max-width:900px;margin:8px auto 0;font-family:var(--font-mono);font-size:10px;color:#A8AEB6;text-align:center;letter-spacing:.03em}
+
+/* ---------- Library / Review ---------- */
+.list-toolbar{
+  flex-shrink:0;display:flex;align-items:center;gap:12px;padding:16px 28px;
+  border-bottom:1px solid var(--color-line);background:var(--color-surface-2);flex-wrap:wrap;
+}
+.list-stat{font-size:12.5px;color:var(--color-muted)}
+.list-stat b{font-family:var(--font-mono);font-size:15px;color:var(--color-ink);margin-right:3px}
+.list-toolbar .topbar-spacer{display:block}
+.library-grid{
+  flex:1;overflow-y:auto;padding:24px 28px 40px;display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;align-content:start;
+  background-color:var(--color-bg);
+  background-image:linear-gradient(rgba(27,32,39,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(27,32,39,.025) 1px,transparent 1px);
+  background-size:30px 30px;
+}
+.case-card{
+  background:var(--color-surface);border:1px solid var(--color-line);border-radius:12px;
+  padding:18px 18px 16px;box-shadow:var(--shadow);cursor:pointer;transition:.2s;
+  display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden;
+}
+.case-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--color-accent);opacity:0;transition:.2s}
+.case-card:hover{transform:translateY(-3px);border-color:#CFC8BC;box-shadow:0 14px 34px rgba(27,32,39,.09)}
+.case-card:hover::before{opacity:1}
+.card-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card-code{font-family:var(--font-mono);font-size:10px;color:#A1A7AF;margin-left:auto}
+.card-model{font-family:var(--font-mono);font-size:11px;background:var(--color-primary);color:#F3F5F7;padding:4px 8px;border-radius:4px}
+.card-customer{font-size:11.5px;color:var(--color-muted)}
+.card-symptom{font-size:14px;font-weight:600;line-height:1.6;color:var(--color-ink);margin:0}
+.card-excerpt{font-size:12px;line-height:1.75;color:var(--color-muted);margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-footer{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:4px;flex-wrap:wrap}
+.card-date{font-family:var(--font-mono);font-size:10px;color:#A6ACB4}
+.status{
+  font-size:10.5px;padding:3px 9px;border-radius:20px;font-weight:500;
+}
+.status.archived{background:var(--color-success-soft);color:var(--color-success)}
+.status.pending{background:var(--color-warning-soft);color:var(--color-warning)}
+.status.rejected{background:var(--color-danger-soft);color:var(--color-danger)}
+.card-tags{display:flex;gap:5px;flex-wrap:wrap;margin-left:auto}
+.review-actions{display:flex;gap:8px;margin-top:4px}
+.btn-approve,.btn-reject{
+  flex:1;padding:8px;border-radius:7px;font-size:12px;font-weight:500;border:1px solid transparent;transition:.18s;
+}
+.btn-approve{background:var(--color-success);color:#fff}
+.btn-approve:hover{background:#267454}
+.btn-reject{background:var(--color-surface);color:var(--color-danger);border-color:#E7C9C5}
+.btn-reject:hover{background:var(--color-danger-soft)}
+.no-data{grid-column:1/-1;text-align:center;padding:80px 20px;color:var(--color-muted)}
+.no-data svg{width:42px;height:42px;margin:0 auto 16px;color:#C8C2B7}
+.no-data p{font-size:13px;margin:0 0 6px}
+.no-data small{font-family:var(--font-mono);font-size:10.5px;color:#B0B5BC}
+
+/* ---------- Upload ---------- */
+.upload-view{flex:1;overflow-y:auto;padding:30px 34px 50px}
+.upload-inner{max-width:840px;margin:0 auto}
+.page-lead{margin-bottom:24px}
+.page-lead h2{font-family:var(--font-display);font-size:26px;margin:0 0 8px;letter-spacing:-.01em}
+.page-lead p{font-size:13px;color:var(--color-muted);margin:0;line-height:1.8}
+.form-card{
+  background:var(--color-surface);border:1px solid var(--color-line);border-radius:14px;
+  padding:28px 30px;box-shadow:var(--shadow);position:relative;overflow:hidden;
+}
+.form-card::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--color-accent),#EFA77F 60%,transparent)}
+.form-section-title{
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;color:var(--color-accent);
+  padding-bottom:12px;margin-bottom:20px;border-bottom:1px solid var(--color-line);
+}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px}
+.field{display:flex;flex-direction:column;gap:7px}
+.field.full{grid-column:1/-1}
+.field label{font-size:12px;font-weight:600;color:#454D57}
+.field label em{color:var(--color-accent);font-style:normal;margin-left:3px}
+.field input,.field textarea,.field select{
+  width:100%;border:1px solid var(--color-line);border-radius:8px;background:var(--color-surface-2);
+  padding:10px 12px;font-size:13px;color:var(--color-ink);outline:none;transition:.18s;line-height:1.7;
+}
+.field textarea{resize:vertical;min-height:78px}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--color-accent);background:#fff;box-shadow:0 0 0 3px rgba(216,91,42,.09)}
+.field .hint{font-size:10.5px;color:#A2A8B0;font-family:var(--font-mono)}
+.form-actions{display:flex;align-items:center;gap:14px;margin-top:26px;padding-top:20px;border-top:1px solid var(--color-line)}
+.btn-primary{
+  border:none;background:var(--color-accent);color:#fff;padding:11px 26px;border-radius:8px;
+  font-size:13px;font-weight:600;transition:.18s;display:inline-flex;align-items:center;gap:8px;
+}
+.btn-primary:hover{background:#C44F22;transform:translateY(-1px)}
+.btn-primary svg{width:15px;height:15px}
+.btn-ghost{border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-muted);padding:10px 20px;border-radius:8px;font-size:12.5px;transition:.18s}
+.btn-ghost:hover{border-color:var(--color-accent);color:var(--color-accent)}
+.form-note{font-size:11.5px;color:var(--color-muted);margin-left:auto}
+
+/* ---------- Modal ---------- */
+.modal{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:24px}
+.modal.hidden{display:none}
+.modal-overlay{position:absolute;inset:0;background:rgba(20,24,29,.5);backdrop-filter:blur(3px)}
+.modal-panel{
+  position:relative;width:min(720px,100%);max-height:86vh;background:var(--color-surface);
+  border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.24);display:flex;flex-direction:column;overflow:hidden;
+  animation:pop .22s ease both;
+}
+@keyframes pop{from{opacity:0;transform:scale(.97) translateY(8px)}to{opacity:1;transform:none}}
+.modal-head{display:flex;align-items:center;gap:10px;padding:18px 24px;border-bottom:1px solid var(--color-line);flex-wrap:wrap}
+.modal-head h3{font-family:var(--font-display);font-size:16px;margin:0}
+.modal-close{margin-left:auto;border:none;background:var(--color-surface-2);width:30px;height:30px;border-radius:7px;display:grid;place-items:center;color:var(--color-muted);transition:.18s}
+.modal-close:hover{background:var(--color-danger-soft);color:var(--color-danger)}
+.modal-close svg{width:15px;height:15px}
+.modal-body{padding:22px 24px;overflow-y:auto}
+.detail-block{margin-bottom:22px}
+.detail-block:last-child{margin-bottom:0}
+.detail-label{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--color-accent);
+  padding-left:10px;border-left:2px solid var(--color-accent);margin-bottom:9px;
+}
+.detail-text{font-size:13px;line-height:1.9;color:#3E4650;margin:0;white-space:pre-wrap}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.detail-kv{background:var(--color-surface-2);border:1px solid var(--color-line);border-radius:8px;padding:11px 13px}
+.detail-kv span{display:block;font-size:10.5px;color:var(--color-muted);margin-bottom:5px}
+.detail-kv b{font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--color-ink)}
+.modal-foot{padding:16px 24px;border-top:1px solid var(--color-line);display:flex;gap:10px;background:var(--color-surface-2)}
+.modal-foot .btn-approve,.modal-foot .btn-reject{flex:none;padding:10px 22px}
+
+/* ---------- Toast ---------- */
+.toast{
+  position:fixed;left:50%;bottom:32px;transform:translate(-50%,20px);
+  background:var(--color-primary);color:#F4F6F8;padding:12px 22px;border-radius:9px;
+  font-size:12.5px;box-shadow:0 12px 32px rgba(0,0,0,.22);z-index:80;opacity:0;pointer-events:none;transition:.28s;
+  border-left:3px solid var(--color-accent);
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media(max-width:1000px){
+  .sidebar{width:74px}
+  .brand{padding:18px 16px}
+  .brand-text,.nav-label,.nav-item span,.filter-section,.foot-line,.role-btn span,.nav-badge{display:none}
+  .nav-item{justify-content:center;padding:11px}
+  .nav-item.active::before{left:-12px}
+  .role-btn{justify-content:center;padding:9px}
+  .sidebar-footer{padding:12px 14px}
+  .topbar{padding:0 16px;gap:8px}
+  .search-wrap{width:180px}
+  .crumb small{display:none}
+  .chat-thread{padding:22px 18px 12px}
+  .chat-compose{padding:12px 18px 16px}
+  .upload-view{padding:22px 18px 40px}
+  .library-grid{padding:18px}
+  .form-grid{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  .topbar .sel{display:none}
+  .search-wrap{width:auto;flex:1}
+  .clear-btn{display:none}
+  .msg-body{max-width:88%}
+  .detail-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/>
+          <path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title">主板维修协助台</div>
+        <div class="brand-sub">MBR · REPAIR DESK</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-label">WORKSPACE</div>
+      <div class="nav-item active" data-view="chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/></svg>
+        <span>对话问答</span>
+      </div>
+      <div class="nav-item" data-view="library">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h5"/></svg>
+        <span>维修案例库</span>
+      </div>
+      <div class="nav-item" data-view="upload">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v13"/></svg>
+        <span>上传案例</span>
+      </div>
+      <div class="nav-item" id="navReview" data-view="review">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>案例审核</span>
+        <span class="nav-badge" id="pendingBadge">0</span>
+      </div>
+    </nav>
+
+    <div class="filter-section">
+      <div class="filter-head">
+        <span>BY MODEL / 型号筛选</span>
+        <button id="resetModel" title="清除型号筛选">清除</button>
+      </div>
+      <div class="model-list" id="modelList"></div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="role-btn" id="roleBtn"><span>演示身份</span><span class="role-tag" id="roleTag">管理员</span></button>
+      <div class="foot-line"><span>LOCAL DEMO · v0.1</span><span>NO LOGIN</span></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="crumb"><span id="crumbTitle">对话问答</span><small id="crumbSub">描述现象，检索历史维修记录</small></div>
+      <div class="topbar-spacer"></div>
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="filterKeyword" type="text" placeholder="搜索关键字 / 型号 / 客户" autocomplete="off">
+      </div>
+      <select class="sel" id="filterModel"><option value="">全部型号</option></select>
+      <select class="sel" id="filterCustomer"><option value="">全部客户</option></select>
+      <button class="clear-btn" id="clearFilters">重置筛选</button>
+    </header>
+
+    <div class="view-container">
+      <section class="view active" id="view-chat">
+        <div class="chat-thread" id="chatThread"></div>
+        <div class="chat-compose">
+          <div class="compose-box">
+            <textarea id="chatInput" rows="1" placeholder="描述故障现象，例如：X10DRi 开机无显示，BMC 红灯常亮…"></textarea>
+            <button class="send-btn" id="sendBtn" title="发送">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            </button>
+          </div>
+          <div class="compose-tip">ENTER 发送 · SHIFT + ENTER 换行 · 检索范围仅限已归档案例</div>
+        </div>
+      </section>
+
+      <section class="view" id="view-library">
+        <div class="list-toolbar">
+          <div class="list-stat"><b id="archivedCount">0</b> 条已归档案例</div>
+          <div class="topbar-spacer"></div>
+          <select class="sel" id="libModel"><option value="">全部型号</option></select>
+          <input class="mini-search" id="libKeyword" type="text" placeholder="库内搜索…" autocomplete="off">
+        </div>
+        <div class="library-grid" id="libraryGrid"></div>
+      </section>
+
+      <section class="view" id="view-upload">
+        <div class="upload-view">
+          <div class="upload-inner">
+            <div class="page-lead">
+              <h2>上传维修案例</h2>
+              <p>填写故障现象与处理过程。提交后进入待审队列，由管理员确认后归档，归档案例才会进入对话检索范围。</p>
+            </div>
+            <form class="form-card" id="uploadForm">
+              <div class="form-section-title">01 / 基础信息</div>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="fModel">主板型号<em>*</em></label>
+                  <input id="fModel" name="model" list="modelOptions" placeholder="如 Supermicro X10DRi" required>
+                  <datalist id="modelOptions"></datalist>
+                </div>
+                <div class="field">
+                  <label for="fCustomer">客户<em>*</em></label>
+                  <input id="fCustomer" name="customer" list="customerOptions" placeholder="如 某云服务商" required>
+                  <datalist id="customerOptions"></datalist>
+                </div>
+                <div class="field">
+                  <label for="fAuthor">填报人</label>
+                  <input id="fAuthor" name="author" placeholder="工程师姓名">
+                </div>
+                <div class="field">
+                  <label for="fTags">关键词标签</label>
+                  <input id="fTags" name="tags" placeholder="开机无显示, 内存报错（逗号分隔）">
+                  <span class="hint">用于提升对话检索命中率</span>
+                </div>
+              </div>
+
+              <div class="form-section-title" style="margin-top:30px">02 / 维修过程</div>
+              <div class="form-grid">
+                <div class="field full">
+                  <label for="fSymptom">故障现象<em>*</em></label>
+                  <textarea id="fSymptom" name="symptom" placeholder="用户报修的现象、指示灯状态、告警信息等" required></textarea>
+                </div>
+                <div class="field full">
+                  <label for="fDetail">现象细节</label>
+                  <textarea id="fDetail" name="detail" placeholder="触发条件、复现步骤、现场环境等"></textarea>
+                </div>
+                <div class="field">
+                  <label for="fDiagnosis">诊断过程<em>*</em></label>
+                  <textarea id="fDiagnosis" name="diagnosis" placeholder="排查思路、测量数据、日志信息" required></textarea>
+                </div>
+                <div class="field">
+                  <label for="fRoot">根因分析</label>
+                  <textarea id="fRoot" name="rootCause" placeholder="最终定位的根本原因"></textarea>
+                </div>
+                <div class="field">
+                  <label for="fSolution">维修方案<em>*</em></label>
+                  <textarea id="fSolution" name="solution" placeholder="采取的处理措施与验证结果" required></textarea>
+                </div>
+                <div class="field">
+                  <label for="fComponents">更换 / 处理元件</label>
+                  <input id="fComponents" name="components" placeholder="如 内存条、电源模块；无则填『清洁处理』">
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn-primary">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v13"/></svg>
+                  提交待审核
+                </button>
+                <button type="reset" class="btn-ghost">清空表单</button>
+                <span class="form-note">提交后可在「案例审核」中查看状态</span>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-review">
+        <div class="list-toolbar">
+          <div class="list-stat"><b id="reviewCount">0</b> 条待审核 · <span id="archivedCount2" style="font-family:var(--font-mono)">0</span> 条已归档</div>
+          <div class="topbar-spacer"></div>
+          <span style="font-size:11.5px;color:var(--color-muted)">仅管理员可确认存档（首版免登录演示）</span>
+        </div>
+        <div class="library-grid" id="reviewGrid"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="modal hidden" id="modal">
+  <div class="modal-overlay" data-close-modal></div>
+  <div class="modal-panel">
+    <div class="modal-head">
+      <span class="card-model" id="detailModel"></span>
+      <span class="card-code" id="detailCode" style="margin-left:0"></span>
+      <span class="status" id="detailStatus"></span>
+      <button class="modal-close" data-close-modal title="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const now=()=>new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+const STORAGE_KEY='mbr_repair_cases_v1';
+
+const SEED=[
+  {code:'MB-2023-041',model:'Supermicro X11DPi-N',customer:'华东某云服务商',date:'2023-08-12',author:'李工',symptom:'开机无显示，BMC 告警红灯常亮，风扇全速旋转',detail:'按下电源键后风扇启动但 VGA 无任何输出，前面板 STAT 灯不亮，IPMI 页面无法进入。冷启动与热重启现象一致。',diagnosis:'最小化系统（单 CPU 单内存）启动仍无显示。测量 PCH 1.05V 供电正常；BMC 日志提示 "Memory ECC error on CPU1_DIMMB1"。更换槽位测试后确认 A1 单条可点亮。',rootCause:'CPU1 内存通道 B 的金手指氧化，导致内存训练失败，北桥未完成初始化因此 VGA 无输出。',solution:'取下 CPU1_DIMMB1 内存条，用橡皮擦清洁金手指并重新插紧；清除 CMOS 后重新上电，显示恢复正常，BMC 可访问。',components:'无（清洁处理）',tags:['开机无显示','BMC告警','内存报错','金手指氧化','DIMM'],status:'archived',views:128},
+  {code:'MB-2023-056',model:'Supermicro X10DRi',customer:'某银行数据中心',date:'2023-09-27',author:'王工',symptom:'服务器频繁自动重启，间隔约 20 分钟，无蓝屏无日志',detail:'业务运行中被强制重启，BMC SEL 记录多次 "Power Unit - Power Off"，无 OS 层 panic 记录。',diagnosis:'红外测温发现 CPU1 供电模块 VR 区域温度达 98℃，同型号正常机器约 70℃。拆开散热器检查，VR 散热片与芯片间导热垫已干裂失效。',rootCause:'CPU1 VRM 相供电散热不良触发过温保护，主板主动断电重启。',solution:'更换 VRM 导热垫并重新压紧散热片，连续烤机 8 小时无重启，温度稳定在 72℃。',components:'导热垫 × 2',tags:['频繁重启','过热','VRM','供电','过温保护'],status:'archived',views:96},
+  {code:'MB-2024-007',model:'Dell PowerEdge R740',customer:'华南某 IDC 机房',date:'2024-01-15',author:'陈工',symptom:'风扇全速运转，卡在 Dell Logo 无法进入系统',detail:'开机自检阶段风扇立即全速，屏幕停在 Logo 约 3 分钟后提示 "No boot device available"。',diagnosis:'进入 HII 配置发现 RAID 卡下挂的虚拟磁盘丢失。拔掉外加的 PCIe 万兆网卡后重新启动，自检速度恢复正常且识别到系统盘。',rootCause:'第三方 PCIe 网卡与 PERC H740P 卡存在 Option ROM 冲突，导致存储控制器初始化超时。',solution:'在设备管理中禁用该网卡的 Option ROM，并将网卡更换到 CPU2 侧的 PCIe 插槽；重启后系统正常引导。',components:' PCIe 插槽调整',tags:['风扇全速','无法进系统','PCIe冲突','RAID','PERC'],status:'archived',views:211},
+  {code:'MB-2024-013',model:'HPE ProLiant DL380 Gen10',customer:'某证券公司',date:'2024-02-08',author:'赵工',symptom:'POST 自检卡在 PCIe 设备检测阶段，约 5 分钟才继续',detail:'自检进度条停滞在 "Initializing PCIe Devices"，期间主板发出连续短鸣。',diagnosis:'逐一拔除 PCIe 设备定位到双口 10G 网卡。该网卡固件版本过旧，与 Gen10 的 UEFI 不兼容。iLO 日志报 "PCIe device initialization timeout"。',rootCause:'网卡固件版本过旧导致 PCIe 链路训练失败，触发自检超时重试。',solution:'升级网卡固件至最新版，并更新服务器 BIOS/UEFI 至 2023.12 版本，自检时间恢复至 40 秒。',components:'固件升级',tags:['PCIe设备','自检卡住','网卡固件','UEFI','报警'],status:'archived',views:74},
+  {code:'MB-2024-019',model:'ASUS Z11PA-U12',customer:'华东某制造企业',date:'2024-03-22',author:'李工',symptom:'断电后无法开机，电源按键无响应，指示灯不亮',detail:'机房意外断电恢复后，服务器完全无反应，更换电源线无效。',diagnosis:'测量主板 standby 电压 +5Vsb 为 0V。断开所有外设后测量仍为 0V。检查发现 RTC 电池附近的一颗贴片保险丝开路。',rootCause:'雷击浪涌导致主板 standby 电路保险丝熔断，CR2032 电池同样失效，主板无法维持待机供电。',solution:'更换 standby 电路贴片保险丝（2A）及 CR2032 电池，上电后 +5Vsb 恢复 5.1V，服务器正常开机。',components:'贴片保险丝 2A、CR2032 电池',tags:['无法开机','断电','5Vsb','浪涌','保险丝'],status:'archived',views:158},
+  {code:'MB-2024-026',model:'Gigabyte R282-Z90',customer:'某视频平台',date:'2024-04-11',author:'王工',symptom:'系统运行中突然死机，键盘鼠标无响应，需强制断电',detail:'高负载渲染任务运行约 2 小时后死机，无蓝屏，BMC 日志无致命错误记录。',diagnosis:'导出 BMC 日志发现多条 "Correctable ECC error" 集中在 CPU2_DIMMA2。使用 MemTest86 单条测试该内存条，30 分钟出现 12 次可纠正错误。',rootCause:'内存颗粒老化导致可纠正 ECC 错误累积，最终触发 mcalloc 死锁造成系统假死。',solution:'更换 CPU2_DIMMA2 内存条，更换后 72 小时压力测试无错误，现场观察一周未复发。',components:'DDR4 32G RDIMM × 1',tags:['突然死机','ECC报错','内存故障','高负载','假死'],status:'archived',views:132},
+  {code:'MB-2024-031',model:'浪潮 NF5280M5',customer:'华北某政务云',date:'2024-05-06',author:'陈工',symptom:'BMC 网页无法访问，Ping 通但 HTTP 超时，串口无输出',detail:'远程管理口链路灯常亮，能 ping 通管理 IP，但浏览器访问一直转圈，SSH 到 BMC 同样无响应。',diagnosis:'长按 BMC 复位键 10 秒无效；通过串口进入 BMC 发现根文件系统只读，日志报 "UBI volume corrupted"。判断为上次异常断电导致固件分区损坏。',rootCause:'异常断电造成 BMC SPI Flash 中的固件镜像写坏，Web 服务进程无法启动。',solution:'使用 TFTP 方式重新烧录同版本 BMC 固件，烧录后恢复出厂设置并重新配置网络，BMC 服务恢复正常。',components:'BMC 固件重刷',tags:['BMC无法访问','固件损坏','SPI Flash','异常断电','管理口'],status:'archived',views:87},
+  {code:'MB-2024-038',model:'Lenovo ThinkSystem SR650',customer:'某物流公司',date:'2024-06-19',author:'赵工',symptom:'电源指示灯闪烁，按开机键无任何反应',detail:'前面板电源灯呈琥珀色慢闪，BMC 显示 "PSU 2 failed or removed"。',diagnosis:'检查发现 PSU2 已断电。拔出 PSU2 后发现电源背板上的 12V 信号针脚弯曲变形，导致 PSU 存在信号无法被主板识别。',rootCause:'电源背板信号针脚弯曲，PSU2 冗余信号异常，主板判定电源冗余丢失并拒绝开机。',solution:'用镊子校正弯曲针脚，重新插入 PSU2 后电源灯恢复常亮，冗余状态正常。',components:'电源背板针脚校正',tags:['电源灯闪烁','无法开机','PSU','冗余','背板'],status:'archived',views:63},
+  {code:'MB-2024-045',model:'Supermicro X11DPU',customer:'某 CDN 厂商',date:'2024-07-14',author:'李工',symptom:'板载网卡无法识别，系统中看不到任何网口',detail:'设备管理器网络适配器为空，lspci 也看不到 Intel XL710 设备，BIOS 中 PCIe 设备列表缺失该网卡。',diagnosis:'重新插拔网卡无效；将网卡换至另一台机箱测试可正常识别，判定为主板 PCIe 插槽问题。测量插槽金手指发现第 3 插槽的 A11 脚氧化发黑。',rootCause:'PCIe 插槽触点氧化造成链路训练失败，网卡未被枚举。',solution:'用无水酒精清洁 PCIe 插槽触点，重新插回网卡后设备正常识别，链路速率 8GT/s。',components:'无（插槽清洁）',tags:['网卡不识别','PCIe插槽','氧化','链路训练','XL710'],status:'archived',views:119},
+  {code:'MB-2024-052',model:'Dell PowerEdge R640',customer:'某三甲医院',date:'2024-08-03',author:'王工',symptom:'运行不稳定，偶发死机，重启后能正常进入系统',detail:'故障无规律，短则数小时长则数天出现一次，系统日志无明显报错。',diagnosis:'拆机检查发现主板靠近内存插槽处有 3 颗固态电容顶部鼓包，容量测试偏差超过 20%。该区域为内存 VDDQ 供电滤波电路。',rootCause:'电容老化鼓包导致内存供电纹波过大，高负载时电压波动引发系统不稳定。',solution:'更换 3 颗鼓包电容（固态 470uF 16V），连续运行两周未再出现死机。',components:'固态电容 470uF/16V × 3',tags:['死机','电容鼓包','供电纹波','不稳定','内存供电'],status:'archived',views:145},
+  {code:'MB-2024-059',model:'HPE ProLiant DL360 Gen9',customer:'某电商平台',date:'2024-09-21',author:'陈工',symptom:'后置 NVMe 硬盘不识别，系统盘丢失无法启动',detail:'机器共有 4 块后置 NVMe SSD，开机后 iLO 仅识别到 2 块，系统盘恰在缺失的两块之中。',diagnosis:'交叉测试确认硬盘本身正常。检查发现 NVMe 转接卡与主板连接器之间有异物导致接触不良，连接器部分针脚有轻微氧化。',rootCause:'转接卡连接器污染导致部分通道链路未建立，NVMe 设备未被枚举。',solution:'清洁连接器与转接卡金手指，重新安装后 4 块 NVMe 全部识别，系统正常启动。',components:'无（清洁处理）',tags:['NVMe不识别','转接卡','接触不良','系统盘丢失','连接器'],status:'archived',views:92},
+  {code:'MB-2024-064',model:'曙光 I620-G30',customer:'某高校计算中心',date:'2024-10-17',author:'赵工',symptom:'开机连续短鸣报警，风扇转但无显示',detail:'开机后蜂鸣器持续短鸣，前面板故障灯亮，无视频输出。',diagnosis:'查 BIOS 报警码表，连续短鸣对应"前置风扇故障"。检查发现前置风扇 3 的插头未完全插入主板风扇接口，仅靠金属触点虚接。',rootCause:'风扇插头松动导致转速信号丢失，BIOS 误判风扇故障并阻止后续初始化。',solution:'重新插紧前置风扇 3 的 4pin 插头，清除告警后开机正常，无任何报警。',components:'无（重新插拔）',tags:['开机报警','风扇故障','无显示','插头松动','蜂鸣器'],status:'archived',views:57},
+  {code:'MB-2024-068',model:'Supermicro X12DPi-NT6',customer:'某 AI 实验室',date:'2024-11-02',author:'刘工',symptom:'IPMI 网口不通，链路灯不亮，BMC 其他功能正常',detail:'专用管理网口插网线后无链路，换线换交换机端口均无效，本地 VGA 操作正常。',diagnosis:'测量 PHY 供电 1.8V 正常，但网口变压器次级线圈对地阻抗异常偏低。怀疑静电击穿 PHY 芯片。',rootCause:'IPMI 网口 PHY 芯片被静电击穿，链路无法建立。',solution:'更换 PHY 芯片后链路恢复。（待管理员复核处理记录完整性）',components:'PHY 芯片 × 1',tags:['IPMI','网口不通','PHY','静电','链路'],status:'pending',views:4},
+  {code:'MB-2024-071',model:'浪潮 NF5280M6',customer:'某省电信',date:'2024-11-18',author:'刘工',symptom:'开机无显示，内存告警灯亮，风扇全速',detail:'加电后风扇全速，无视频输出，DIMM 告警灯常亮。',diagnosis:'待补充：最小化测试与日志导出。',rootCause:'',solution:'待补充处理方案。',components:'',tags:['开机无显示','内存告警','风扇全速'],status:'pending',views:2},
+  {code:'MB-2024-055',model:'某杂牌工控主板',customer:'个人送修',date:'2024-08-28',author:'外部投稿',symptom:'不开机',detail:'',diagnosis:'',rootCause:'',solution:'',components:'',tags:['不开机'],status:'rejected',views:1}
+];
+
+let state={cases:[],view:'chat',role:'admin',filters:{model:'',customer:'',keyword:''},chat:[],detailCode:null};
+
+function load(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){const arr=JSON.parse(raw);if(Array.isArray(arr)&&arr.length)return arr;}
+  }catch(e){}
+  return null;
+}
+function save(){
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state.cases));}catch(e){}
+}
+function normalize(c){
+  return Object.assign({code:'',model:'',customer:'',date:'',author:'',symptom:'',detail:'',diagnosis:'',rootCause:'',solution:'',components:'',tags:[],status:'pending',views:0},c,{tags:Array.isArray(c.tags)?c.tags:[]});
+}
+function archived(){return state.cases.filter(c=>c.status==='archived');}
+function byCode(code){return state.cases.find(c=>c.code===code);}
+function uniq(key,list=state.cases){return Array.from(new Set(list.map(c=>c[key]).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'zh-CN'));}
+
+function renderSidebar(){
+  const counts={};archived().forEach(c=>{counts[c.model]=(counts[c.model]||0)+1;});
+  const models=uniq('model').sort((a,b)=>(counts[b]||0)-(counts[a]||0)||a.localeCompare(b,'zh-CN'));
+  $('#modelList').innerHTML=['',...models].map(m=>`
+    <div class="model-item ${state.filters.model===m?'active':''}" data-model="${esc(m)}">
+      <i class="dot"></i><span style="overflow:hidden;text-overflow:ellipsis">${m?esc(m):'全部型号'}</span>
+      <span class="cnt">${m?(counts[m]||0):archived().length}</span>
+    </div>`).join('');
+  $$('.model-item').forEach(el=>el.addEventListener('click',()=>selectModel(el.dataset.model)));
+  const pending=state.cases.filter(c=>c.status==='pending').length;
+  $('#pendingBadge').textContent=pending;
+  $('#pendingBadge').style.display=pending?'':'none';
+  $('#navReview').style.display=state.role==='admin'?'':'none';
+  $('#roleTag').textContent=state.role==='admin'?'管理员':'访客';
+}
+
+function renderFilterSelects(){
+  const fm=$('#filterModel'),fc=$('#filterCustomer'),dlm=$('#libModel');
+  const models=uniq('model'),customers=uniq('customer');
+  fm.innerHTML='<option value="">全部型号</option>'+models.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  fc.innerHTML='<option value="">全部客户</option>'+customers.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  dlm.innerHTML='<option value="">全部型号</option>'+models.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
+  $('#modelOptions').innerHTML=models.map(m=>`<option value="${esc(m)}"></option>`).join('');
+  $('#customerOptions').innerHTML=customers.map(m=>`<option value="${esc(m)}"></option>`).join('');
+  fm.value=state.filters.model;fc.value=state.filters.customer;dlm.value=state.filters.model;
+  $('#filterKeyword').value=state.filters.keyword;
+}
+
+function hardFilter(c,f){
+  if(f.model&&c.model!==f.model)return false;
+  if(f.customer&&!String(c.customer).toLowerCase().includes(f.customer.toLowerCase()))return false;
+  if(f.keyword){
+    const hay=[c.model,c.customer,c.symptom,c.detail,c.diagnosis,c.rootCause,c.solution,c.components,c.author,c.code,...(c.tags||[])].join(' ').toLowerCase();
+    if(!hay.includes(f.keyword.toLowerCase()))return false;
+  }
+  return true;
+}
+function selectModel(m){state.filters.model=(state.filters.model===m?'':m);syncFilters();setView('chat');}
+function syncFilters(){renderSidebar();renderFilterSelects();renderLibrary();renderReview();}
+
+function tokensOf(text){
+  const raw=String(text||'').toLowerCase().replace(/[，。、；：？！“”‘’"'`（）()\[\]{}\/\\|,.?;:!~`@#$%^&*+=\-_]/g,' ').split(/\s+/).filter(Boolean);
+  const map=new Map();
+  raw.forEach(r=>{
+    if(/[\u4e00-\u9fa5]/.test(r)){
+      map.set(r,3);
+      for(let i=0;i<r.length-1;i++){const bg=r.slice(i,i+2);map.set(bg,Math.max(map.get(bg)||0,1.2));}
+    }else if(r.length>=2){map.set(r,Math.max(map.get(r)||0,3));}
+  });
+  return Array.from(map,([t,w])=>({t,w}));
+}
+function detectContext(q){
+  const low=String(q).toLowerCase();let model='',customer='';
+  for(const m of uniq('model')){if(low.includes(m.toLowerCase())){model=m;break;}}
+  for(const m of uniq('customer')){if(low.includes(m.toLowerCase())){customer=m;break;}}
+  return {model,customer};
+}
+function scoreCase(c,tokens,query){
+  const sym=(c.symptom+' '+c.detail).toLowerCase();
+  const tag=(c.tags||[]).join(' ').toLowerCase();
+  const diag=(c.diagnosis+' '+c.rootCause).toLowerCase();
+  const sol=(c.solution+' '+c.components).toLowerCase();
+  const meta=(c.model+' '+c.code+' '+c.customer).toLowerCase();
+  let s=0;
+  for(const {t,w} of tokens){
+    if(sym.includes(t))s+=3*w;
+    if(tag.includes(t))s+=2.5*w;
+    if(diag.includes(t))s+=1.5*w;
+    if(sol.includes(t))s+=1*w;
+    if(meta.includes(t))s+=2*w;
+  }
+  const phrase=String(query).trim().toLowerCase();
+  if(phrase.length>=2&&sym.includes(phrase))s+=14;
+  else if(phrase.length>=4&&(tag.includes(phrase)||diag.includes(phrase)))s+=6;
+  return s;
+}
+function retrieve(query){
+  const ctx=detectContext(query);
+  const f={model:state.filters.model||ctx.model,customer:state.filters.customer||ctx.customer,keyword:state.filters.keyword};
+  const pool=archived().filter(c=>hardFilter(c,f));
+  const tokens=tokensOf(query);
+  const hits=pool.map(c=>({c,score:scoreCase(c,tokens,query)})).filter(x=>x.score>=6).sort((a,b)=>b.score-a.score).slice(0,5);
+  let text;
+  if(!hits.length){
+    text=(f.model||f.customer||f.keyword)
+      ?'当前筛选条件下没有找到匹配的维修记录。可以点击「重置筛选」扩大范围，或换一种现象描述。'
+      :'暂时没有检索到相似记录。可以换用更具体的现象描述（例如「开机无显示」「内存报错」「风扇全速」），或上传一条新案例。';
+  }else{
+    const bits=[`根据描述，检索到 ${hits.length} 条相似维修记录，已按匹配度排序：`];
+    const ids=[ctx.model,ctx.customer].filter(Boolean);
+    if(ids.length)bits.push('已从描述中识别：'+ids.join(' · ')+'。');
+    text=bits.join('');
+  }
+  return {hits,text,f};
+}
+
+const SUGGESTIONS=['开机无显示','风扇全速运转','频繁自动重启','内存报错','BMC无法访问','PCIe设备不识别'];
+const WELCOME=`
+<div class="welcome">
+  <div class="watermark">01</div>
+  <div class="welcome-mark">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/></svg>
+  </div>
+  <div class="welcome-kicker">SERVER BOARD · REPAIR KNOWLEDGE</div>
+  <h1 class="welcome-title">描述现象，<br><span>调出历史维修记录</span></h1>
+  <p class="welcome-desc">输入主板型号、客户或故障现象，系统将从已归档案例中检索相似记录，帮助你快速定位问题、回顾处理思路。示例：X10DRi 开机无显示 BMC 红灯。</p>
+  <div class="suggest-label">TRY ASKING / 快捷提问</div>
+  <div class="suggestions">${SUGGESTIONS.map((s,i)=>`<button class="chip" data-suggest="${esc(s)}"><span>0${i+1}</span>${esc(s)}</button>`).join('')}</div>
+</div>`;
+
+function hitCard({c,score}){
+  const pct=Math.min(100,Math.round(score/2));
+  return `<article class="hit" data-open-case="${esc(c.code)}">
+    <div class="hit-head">
+      <span class="model-badge">${esc(c.model)}</span>
+      <span class="hit-customer">${esc(c.customer)}</span>
+      <span class="hit-date">${esc(c.date)}</span>
+      <span class="score-wrap">匹配 ${score.toFixed(1)}<span class="score-bar"><i style="width:${pct}%"></i></span></span>
+    </div>
+    <div class="hit-body">
+      <div class="hit-row"><span class="hit-key">现象</span><span class="hit-val">${esc(c.symptom)}</span></div>
+      <div class="hit-row"><span class="hit-key">诊断</span><span class="hit-val">${esc(c.diagnosis||'—')}</span></div>
+      <div class="hit-row"><span class="hit-key">方案</span><span class="hit-val">${esc(c.solution||'—')}</span></div>
+    </div>
+    ${(c.tags||[]).length?`<div class="hit-tags">${c.tags.slice(0,5).map((t,i)=>`<span class="tag ${i===0?'hot':''}">${esc(t)}</span>`).join('')}</div>`:''}
+  </article>`;
+}
+function renderChat(){
+  const thread=$('#chatThread');
+  if(!state.chat.length){thread.innerHTML=WELCOME;bindSuggestions();return;}
+  thread.innerHTML=state.chat.map(m=>{
+    if(m.role==='user')return `<div class="msg user"><div class="msg-avatar user-av">我</div><div class="msg-body"><div class="msg-bubble">${esc(m.text)}</div><div class="msg-time">${m.time}</div></div></div>`;
+    const f=m.f||{};
+    const pills=[f.model&&`型号：${esc(f.model)}`,f.customer&&`客户：${esc(f.customer)}`,f.keyword&&`关键字：${esc(f.keyword)}`].filter(Boolean);
+    return `<div class="msg assistant">
+      <div class="msg-avatar bot-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/></svg></div>
+      <div class="msg-body">
+        <div class="msg-bubble"><div class="bot-head">MBR KNOWLEDGE BASE</div>${esc(m.text)}</div>
+        ${m.hits&&m.hits.length?m.hits.map(hitCard).join(''):`<div class="empty-hint">建议补充具体现象关键词，例如：无显示、报警、重启、ECC、BMC、风扇、网口。也可以到「上传案例」提交现场记录。</div>`}
+        ${pills.length?`<div class="msg-actions"><span>已应用筛选</span>${pills.map(p=>`<span class="filter-pill">${p}</span>`).join('')}<button data-act="clear-filter">清除筛选</button></div>`:''}
+        <div class="msg-time">${m.time}</div>
+      </div>
+    </div>`;
+  }).join('');
+  bindSuggestions();
+  $$('[data-open-case]',thread).forEach(el=>el.addEventListener('click',()=>openDetail(el.dataset.openCase)));
+  const btn=$('[data-act="clear-filter"]',thread);
+  if(btn)btn.addEventListener('click',()=>{state.filters={model:'',customer:'',keyword:''};syncFilters();toast('已清除全部筛选条件');});
+  requestAnimationFrame(()=>{thread.scrollTop=thread.scrollHeight;});
+}
+function bindSuggestions(){
+  $$('[data-suggest]').forEach(el=>el.addEventListener('click',()=>{sendMessage(el.dataset.suggest);}));
+}
+function typing(on){
+  const old=$('#typingRow');if(old)old.remove();
+  if(!on)return;
+  const row=document.createElement('div');row.className='msg assistant';row.id='typingRow';
+  row.innerHTML=`<div class="msg-avatar bot-av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></div><div class="msg-body"><div class="msg-bubble"><div class="typing"><i></i><i></i><i></i></div></div></div>`;
+  $('#chatThread').appendChild(row);
+  $('#chatThread').scrollTop=$('#chatThread').scrollHeight;
+}
+function sendMessage(text){
+  const q=String(text||'').trim();if(!q)return;
+  state.chat.push({role:'user',text:q,time:now()});
+  renderChat();typing(true);$('#chatInput').value='';autoGrow();
+  setTimeout(()=>{
+    const r=retrieve(q);
+    typing(false);
+    state.chat.push({role:'assistant',text:r.text,hits:r.hits,f:{model:state.filters.model,customer:state.filters.customer,keyword:state.filters.keyword},time:now()});
+    renderChat();
+  },420);
+}
+
+function libraryFilter(){
+  const kw=($('#libKeyword').value||'').trim();
+  const m=$('#libModel').value||state.filters.model;
+  return archived().filter(c=>{
+    if(m&&c.model!==m)return false;
+    if(kw){const hay=[c.model,c.customer,c.symptom,c.diagnosis,c.solution,c.code,...(c.tags||[])].join(' ').toLowerCase();if(!hay.includes(kw.toLowerCase()))return false;}
+    return true;
+  });
+}
+function cardHtml(c,review=false){
+  return `<article class="case-card" data-open-case="${esc(c.code)}">
+    <div class="card-top">
+      <span class="card-model">${esc(c.model)}</span>
+      <span class="card-customer">${esc(c.customer)}</span>
+      <span class="card-code">${esc(c.code)}</span>
+    </div>
+    <h3 class="card-symptom">${esc(c.symptom)}</h3>
+    <p class="card-excerpt">${esc(c.diagnosis||c.solution||'暂无详细记录')}</p>
+    <div class="card-footer">
+      <span class="status ${esc(c.status)}">${c.status==='archived'?'已归档':c.status==='pending'?'待审核':'已驳回'}</span>
+      <span class="card-date">${esc(c.date)}</span>
+      <span class="card-tags">${(c.tags||[]).slice(0,3).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</span>
+    </div>
+    ${review&&state.role==='admin'?`<div class="review-actions" data-review-actions="${esc(c.code)}">
+      <button class="btn-approve" data-approve="${esc(c.code)}">确认存档</button>
+      <button class="btn-reject" data-reject="${esc(c.code)}">驳回</button>
+    </div>`:''}
+  </article>`;
+}
+function noData(title,sub){
+  return `<div class="no-data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><p>${title}</p><small>${sub}</small></div>`;
+}
+function renderLibrary(){
+  $('#archivedCount').textContent=archived().length;
+  $('#archivedCount2').textContent=archived().length;
+  const list=libraryFilter();
+  $('#libraryGrid').innerHTML=list.length?list.map(c=>cardHtml(c)).join(''):noData('没有符合条件的案例','调整型号或关键字后重试');
+  $$('[data-open-case]',$('#libraryGrid')).forEach(el=>el.addEventListener('click',e=>{if(e.target.closest('[data-approve],[data-reject]'))return;openDetail(el.dataset.openCase);}));
+}
+function renderReview(){
+  $('#reviewCount').textContent=state.cases.filter(c=>c.status==='pending').length;
+  const list=state.cases.filter(c=>c.status==='pending');
+  $('#reviewGrid').innerHTML=list.length?list.map(c=>cardHtml(c,true)).join(''):noData('待审队列为空','所有案例均已处理');
+  $$('[data-approve]',$('#reviewGrid')).forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();reviewCase(el.dataset.approve,'archived');}));
+  $$('[data-reject]',$('#reviewGrid')).forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();reviewCase(el.dataset.reject,'rejected');}));
+  $$('[data-open-case]',$('#reviewGrid')).forEach(el=>el.addEventListener('click',e=>{if(e.target.closest('[data-approve],[data-reject]'))return;openDetail(el.dataset.openCase);}));
+}
+function reviewCase(code,status){
+  const c=byCode(code);if(!c)return;
+  c.status=status;save();renderAll();
+  toast(status==='archived'?`${code} 已确认存档，现可参与对话检索`:`${code} 已驳回`);
+}
+
+function openDetail(code){
+  const c=byCode(code);if(!c)return;
+  state.detailCode=code;
+  c.views=(c.views||0)+1;save();
+  $('#detailModel').textContent=c.model;
+  $('#detailCode').textContent=c.code+' · '+c.date;
+  const st=$('#detailStatus');st.className='status '+c.status;st.textContent=c.status==='archived'?'已归档':c.status==='pending'?'待审核':'已驳回';
+  $('#modalBody').innerHTML=`
+    <div class="detail-grid" style="margin-bottom:22px">
+      <div class="detail-kv"><span>客户</span><b>${esc(c.customer)}</b></div>
+      <div class="detail-kv"><span>填报人 / 浏览</span><b>${esc(c.author||'—')} · ${c.views||0} 次</b></div>
+    </div>
+    <div class="detail-block"><div class="detail-label">01 / 故障现象</div><p class="detail-text">${esc(c.symptom)}</p>${c.detail?`<p class="detail-text" style="margin-top:8px;color:var(--color-muted)">${esc(c.detail)}</p>`:''}</div>
+    <div class="detail-block"><div class="detail-label">02 / 诊断过程</div><p class="detail-text">${esc(c.diagnosis||'暂无记录')}</p></div>
+    <div class="detail-block"><div class="detail-label">03 / 根因分析</div><p class="detail-text">${esc(c.rootCause||'暂无记录')}</p></div>
+    <div class="detail-block"><div class="detail-label">04 / 维修方案</div><p class="detail-text">${esc(c.solution||'暂无记录')}</p></div>
+    <div class="detail-block"><div class="detail-label">05 / 元件与标签</div><p class="detail-text">更换/处理：${esc(c.components||'无')}</p><div class="hit-tags" style="padding:10px 0 0">${(c.tags||[]).map(t=>`<span class="tag hot">${esc(t)}</span>`).join('')}</div></div>`;
+  $('#modalFoot').innerHTML=(c.status==='pending'&&state.role==='admin')
+    ?`<button class="btn-approve" data-modal-review="archived">确认存档</button><button class="btn-reject" data-modal-review="rejected">驳回案例</button><span style="font-size:11.5px;color:var(--color-muted);align-self:center;margin-left:auto">确认后该案例将进入对话检索范围</span>`
+    :`<span style="font-size:11.5px;color:var(--color-muted)">${c.status==='archived'?'该案例已归档，可用于对话检索':'该案例未归档，不参与对话检索'}</span>`;
+  $$('[data-modal-review]',$('#modalFoot')).forEach(b=>b.addEventListener('click',()=>{const s=b.dataset.modalReview;$('#modal').classList.add('hidden');reviewCase(code,s);}));
+  $('#modal').classList.remove('hidden');
+  renderSidebar();renderLibrary();renderReview();
+}
+
+function nextCode(){
+  const y=new Date().getFullYear();let max=0;
+  state.cases.forEach(c=>{const m=/MB-(\d{4})-(\d+)/.exec(c.code||'');if(m&&Number(m[2])>max)max=Number(m[2]);});
+  return `MB-${y}-${String(max+1).padStart(3,'0')}`;
+}
+function submitCase(e){
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const c=normalize({
+    code:nextCode(),
+    model:String(fd.get('model')||'').trim(),
+    customer:String(fd.get('customer')||'').trim(),
+    date:new Date().toISOString().slice(0,10),
+    author:String(fd.get('author')||'').trim()||'未署名',
+    symptom:String(fd.get('symptom')||'').trim(),
+    detail:String(fd.get('detail')||'').trim(),
+    diagnosis:String(fd.get('diagnosis')||'').trim(),
+    rootCause:String(fd.get('rootCause')||'').trim(),
+    solution:String(fd.get('solution')||'').trim(),
+    components:String(fd.get('components')||'').trim()||'无',
+    tags:String(fd.get('tags')||'').split(/[,，、]/).map(s=>s.trim()).filter(Boolean),
+    status:'pending',views:0
+  });
+  if(!c.model||!c.customer||!c.symptom||!c.diagnosis||!c.solution){toast('请填写标记的必填项');return;}
+  state.cases.unshift(c);save();e.target.reset();renderAll();
+  setView(state.role==='admin'?'review':'chat');
+  toast(`${c.code} 已提交，等待管理员审核`);
+}
+function toast(msg){
+  const t=$('#toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove('show'),2800);
+}
+function autoGrow(){
+  const el=$('#chatInput');el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';
+}
+function setView(v){
+  state.view=v;
+  const titles={chat:['对话问答','描述现象，检索历史维修记录'],library:['维修案例库','浏览全部已归档维修记录'],upload:['上传案例','提交新案例等待审核'],review:['案例审核','确认并归档待审案例']};
+  $$('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+v));
+  $$('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.view===v));
+  $('#crumbTitle').textContent=titles[v][0];$('#crumbSub').textContent=titles[v][1];
+  if(v==='library')renderLibrary();
+  if(v==='review')renderReview();
+}
+function renderAll(){renderSidebar();renderFilterSelects();renderChat();renderLibrary();renderReview();}
+
+function bind(){
+  $$('.nav-item').forEach(el=>el.addEventListener('click',()=>setView(el.dataset.view)));
+  $('#sendBtn').addEventListener('click',()=>sendMessage($('#chatInput').value));
+  $('#chatInput').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage(e.target.value);}});
+  $('#chatInput').addEventListener('input',autoGrow);
+  $('#filterModel').addEventListener('change',e=>{state.filters.model=e.target.value;syncFilters();});
+  $('#filterCustomer').addEventListener('change',e=>{state.filters.customer=e.target.value;syncFilters();});
+  $('#filterKeyword').addEventListener('input',e=>{state.filters.keyword=e.target.value.trim();syncFilters();});
+  $('#clearFilters').addEventListener('click',()=>{state.filters={model:'',customer:'',keyword:''};$('#libKeyword').value='';syncFilters();toast('已重置全部筛选条件');});
+  $('#resetModel').addEventListener('click',()=>{state.filters.model='';syncFilters();});
+  $('#libModel').addEventListener('change',e=>{state.filters.model=e.target.value;renderLibrary();renderSidebar();});
+  $('#libKeyword').addEventListener('input',renderLibrary);
+  $('#uploadForm').addEventListener('submit',submitCase);
+  $('#roleBtn').addEventListener('click',()=>{
+    state.role=state.role==='admin'?'guest':'admin';
+    if(state.view==='review'&&state.role!=='admin')setView('chat');
+    renderSidebar();renderLibrary();renderReview();
+    toast(state.role==='admin'?'已切换为管理员身份':'已切换为访客身份（不显示审核入口）');
+  });
+  $$('[data-close-modal]').forEach(el=>el.addEventListener('click',()=>$('#modal').classList.add('hidden')));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#modal').classList.add('hidden');});
+}
+
+(function init(){
+  state.cases=(load()||SEED.map(normalize)).map(normalize);
+  save();bind();renderAll();
+})();
+</script>
+</body>
+</html>
