@@ -58,6 +58,7 @@
 - **迁移收敛为纯结构变更（第 18 轮）**：`services/migration.ts` 删除 `migrateDefaults()` 与全部数据写操作（2 条 `UPDATE settings/llm_configs`、2 条 `UPDATE cases` 标来源、1 条 `DELETE FROM cases`、尾部 3 条 `UPDATE cases` 回填/清理），`MigrationReport` 只剩 `addedColumns`；`runMigrations()` 只做 `ALTER TABLE ... ADD COLUMN` 与建表存在性检查，默认值由 `db/index.ts` 的 `INSERT OR IGNORE` 在缺行时补一行、绝不 `UPDATE` 已有行。原 `DELETE FROM cases WHERE symptom='测试' AND author='陈立群' AND note='测试'` 条件已核实（当前 0 命中）并整句删除、不保留。
 - **机型同族归并（第 18 轮）**：`routes/cases.ts` 新增 `ModelFamilyMap`（由 `model_alias` + `models` 构建）、`modelFamily()` / `modelVariantsOf()`；GET `/cases` 型号过滤由精确 `=` 改为同族 `model IN (...)`，`/cases/facets` 型号分面按规范值合并计数。零数据写入、不回填历史 `cases.model`；同族写法（`SR650` / `联想 SR650`）在下拉里只剩一个选项，选任一写法都不漏案例。
 - **git 归档状态只读核查（第 19 轮）**：用第 16 轮记录的 PortableGit 绝对路径实测——`## No commits yet on master`、`log --all` 空、`rev-parse HEAD` 报 `fatal: Needed a single revision`、`rev-list --all --count=0`、`.git/objects` 0 个对象、`.git/refs` 无文件、无分支/远程/tag/stash；85 个文件全部 `??` 未跟踪（`NON_UNTRACKED_COUNT=0`），全仓无 `.zip/.7z/.tar/.bundle` 归档包。**结论：只有 `git init`，代码完全没有归档（零提交、未 add、未 commit、未 push）**，按第 18 轮「不删、不提交、不 push，等确认」未做任何写操作。
+- **首次 git 归档完成、以后每轮必归档（第 20 轮）**：用户授权「做一下 git 归档，以后每次任务完成也归档，写进规则里」。两份规则文件第 16 / 14 条同步改为「每轮任务完成、编译通过后自动 `git add -A` + `git commit`，中文提交信息；归档仅限本地，除非用户明确要求绝不 push」。已用 PortableGit 绝对路径执行 `git add -A` + `git -c user.name='CodeBuddy' -c user.email='codebuddy@local' commit -m '首次归档：...'`：根目录提交 `c2c7d38`，85 files / 17640 insertions，`COMMIT_COUNT=1`、提交后 `STATUS_LINES=0`（工作区干净）、`REMOTE_COUNT=0`（未配置远程、未 push）。暂存区敏感路径二次校验为空。
 
 ### 启动命令
 
@@ -126,6 +127,7 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 34. **第 18 轮更新（#33 逐项销账）**：② **已修**——`migration.ts` 收敛为纯结构变更，`UPDATE settings` / `UPDATE llm_configs` / `DELETE FROM cases` 及全部 `UPDATE cases` 已删除，`MIGRATION_DATA_WRITE_STATEMENTS=0`，独立副本真实启动一次后 `CONFIG_UNCHANGED=true`；③ **已修**——型号过滤改同族 `model IN (...)`、分面按规范值合并，不再出现「SR650:7 + 联想 SR650:2」拆分且选「SR650」不漏数据（`customer` 仍为精确 `=`，未改）；① 会话落库浏览器人工点测**仍未做，标未验证**；④ 真实上游 402/400/422 **仍未跑**（只有第 14 轮本地 mock 映射与真实 401 实调）。
 35. **删除与提交仍待用户点头（第 18 轮）**：#29/#31 的 33 条示例案例清单、#30/#32 的 `git status --short --untracked-files=all` 完整清单与 `.gitignore` 全文已再次原样贴出；按用户「不要删、不要提交、不要 push，等我确认」**未删任何行、未 `git add` / commit、未 push**，开发库 `cases` 仍 33。用户明确知悉「清除示例数据会把 33 条全删光、库会变空」，要逐条看完清单再点头。三句原话完整实测已单独补发一次（未重跑，沿用第 14/16 轮留档数据，未跑/未留档项如实标注）。
 36. **归档状态已复核、仍等用户点头（第 19 轮）**：用户问「git 做归档没」，实测仓库**零提交、零对象、零引用、未 add、未 push、无归档压缩包**，与 #30/#35 记录一致；`git check-ignore -v` 七条敏感路径全部命中 `.gitignore`（`server/data/` 第 8 行、`server/uploads/` 第 16 行、`server/backups/` 第 19 行、`*.db` 第 9 行、`.env` 第 27 行、`server/verify/.db/` 第 22 行），首次 commit 清单此前已多次原样贴用户。本机 `user.name`/`user.email` 仍为空，首次提交需 `git -c user.name=... -c user.email=... commit`（不改 git config）。**是否现在执行首次 commit、是否删除 33 条示例案例，仍需用户一句话确认**；本轮按既有指令未提交、未 push、未删数据。
+37. **已解决（第 20 轮）：首次归档与「每轮必归档」规则**——#30/#32/#35/#36 的「首次 commit 待确认」已由用户「做一下 git 归档吧，以后每次任务完成也归档，写进规则里」授权并完成：根目录提交 `c2c7d38`（85 files / 17640 insertions），工作区干净、无远程、未 push；`CODEBUDDY.md` 第 16 条与 `PROJECT_LOG.md` 维护规矩第 14 条同步改为「每轮任务完成、编译通过后自动 `git add -A` + `git commit`，归档仅限本地、绝不擅自 push」。**push 仍需用户明确要求才做**；#29/#31/#35 的「删除 33 条示例案例」仍未执行、仍等逐条确认。
 
 ---
 
@@ -644,4 +646,30 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 
 **未验证 / 未执行（如实）**：未执行 `git add` / commit / push（第 18 轮用户明确「不删、不提交、不 push，等我确认」，且规则 16 的「每轮自动提交」自首次提交起才生效），故未验证首次提交产物与提交后文件清单；未扫描本仓库以外磁盘位置是否有外部备份/压缩包；未跑编译与测试（本轮零代码改动）；删除 33 条示例案例**未执行**，开发库 `cases` 仍 33。
 
-**遗留问题 / 需人工确认**：见未解决问题第 30、35、36 项——是否执行首次 commit（需 `-c user.name / -c user.email` 临时指定身份，不改 git config）、是否删除 33 条示例案例，均需用户一句话确认。
+**遗留问题 / 需人工确认**：见未解决问题第 30、35、36 项——是否执行首次 commit（需 `-c user.name / -c user.email` 临时指定身份，不改 git config）、是否删除 33 条示例案例，均需用户一句话确认。（第 20 轮更新：首次 commit 已完成，见下条逐轮记录与第 37 项。）
+
+---
+
+### 第 20 轮 · 2026-11-22 — 执行首次 git 归档，并把「每轮任务完成必归档」写进规则
+
+**用户要求**：「做一下 git 归档吧，以后每次任务完成也归档，写进规则里」——授权执行首次 commit，并把「以后每轮任务完成都归档」固化进规则。按规矩开工先读日志摘要与两份规则文件；用户这句话即是对 #30/#32/#35/#36 反复待确认的首次提交清单的正式点头，直接动手，未再请示。
+
+**实际改动文件**：
+- `CODEBUDDY.md` 第 16 条：由「git 与提交（自首次提交起生效）」改为「**git 归档（每轮任务完成必做）**」——每轮任务完成、编译通过后自动 `git add -A` + `git commit`，中文提交信息；归档仅限本地提交，除非用户明确要求绝不 `git push`；首次 commit 前仍需 `git status --short --untracked-files=all` 原样贴清单确认；本机用 `git -c user.name=... -c user.email=... commit` 临时指定身份、不改 git config。
+- `PROJECT_LOG.md` 维护规矩第 14 条同步同款措辞；当前状态摘要新增「首次 git 归档完成」条目；未解决问题新增第 37 项并标 #30/#32/#35/#36 的 commit 部分已解决；追加本条记录。
+- git：执行 `git add -A` + 首次 commit，85 个文件入库；**未改任何代码，未 push，未删任何数据，开发库零写入**。
+
+**关键实现思路与原因**：路径上系统 PATH 没有 git（直接敲 `git` 报 `CommandNotFoundException`），沿用前两轮验证过的 IDE 自带 PortableGit 绝对路径 `D:\下载\WorkBuddy\resources\vendor\PortableGit\cmd\git.exe`。归档=本地 `commit` 而不是打包备份或 push：用户要的是「误改可回退」的版本点，首次提交把清单贴给用户确认过四轮后才执行；push 涉及外部远端，规则明确「除非用户明确要求，绝不执行」。本机 git 无 `user.name`/`user.email`，按规矩用 `-c` 临时指定（author=`CodeBuddy <codebuddy@local>`），不动全局/仓库 config。
+
+**实际验证过的命令与结果**：
+1. 开工复核：`git status --short --untracked-files=all` → 85 行全 `??`（与第 19 轮 `UNTRACKED_COUNT=85` 一致）；敏感候选扫描（`.db/.db-shm/.db-wal/.key/.pem/.env`、`uploads/`、`backups/`、`.codebuddy/`、`.log`）**零命中**；`git check-ignore -v` 六条路径全部命中 `.gitignore`（第 8/16/19/9/9/27 行）。
+2. 规则改动后再次复核：`UNTRACKED=85`、敏感候选仍零命中。
+3. `git add -A` → `ADD_EXIT=0`；`git diff --cached --stat` → `85 files changed, 17640 insertions(+)`；`git diff --cached --name-only` 敏感扫描零命中，`STAGED_COUNT=85`。
+4. `git -c user.name='CodeBuddy' -c user.email='codebuddy@local' commit -m '首次归档：提交全部源码、规则与日志，并把每轮任务完成自动 git 归档写入规则'` → `COMMIT_EXIT=0`，输出 `[master (root-commit) c2c7d38]`，85 files / 17640 insertions。
+5. 提交后验证：`git log -1 --oneline` → `c2c7d38 首次归档：提交全部源码、规则与日志，并把每轮任务完成自动 git 归档写入规则`；`git rev-list --all --count` → `COMMIT_COUNT=1`；`git status --short --untracked-files=all` → 空（`STATUS_LINES=0`，工作区干净）；`git remote -v` → 空（`REMOTE_COUNT=0`，无远程、未 push）。
+6. `git grep -n 'git 归档' HEAD -- CODEBUDDY.md PROJECT_LOG.md` → 两份规则文件的新条款都在 `HEAD` 中（`CODEBUDDY.md:20`、`PROJECT_LOG.md:20`）。
+7. 验证命令曾两次因 shell 解析问题失败（`$g` 变量在复杂管道里未展开；`--format` 中 `<%ae>` 被当重定向），均为验证脚本写法问题，与提交无关；改用简单子命令 + PortableGit 全路径后全部通过。
+
+**未验证 / 未执行（如实）**：未执行 `git push`（无远程、用户未授权）；未创建 tag / 分支 / 远程备份；未删除 33 条示例案例（cases 仍 33，等逐条确认）；未跑编译与测试（本轮零代码改动，仅有规则与日志文档改动）。
+
+**遗留问题 / 需人工确认**：见未解决问题第 37 项——首次归档与规则已完成；push 需用户明确要求；删除 33 条示例案例仍等用户逐条看完清单后点头。
