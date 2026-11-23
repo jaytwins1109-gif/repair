@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { requireAuth, requireRole } from '../middleware/auth';
+import { escapeLike, LIKE_ESCAPE_SQL } from '../services/access';
 import { ok, fail } from '../response';
 
 const router = Router();
@@ -11,9 +12,10 @@ router.get('/customers', requireAuth, (req, res) => {
     const rows = q
       ? db
           .prepare(
-            `SELECT * FROM customers WHERE name LIKE ? OR contact LIKE ? OR note LIKE ? ORDER BY id DESC`
+            `SELECT * FROM customers WHERE name LIKE ? ${LIKE_ESCAPE_SQL} OR contact LIKE ? ${LIKE_ESCAPE_SQL}` +
+              ` OR note LIKE ? ${LIKE_ESCAPE_SQL} ORDER BY id DESC`
           )
-          .all(`%${q}%`, `%${q}%`, `%${q}%`)
+          .all(`%${escapeLike(q)}%`, `%${escapeLike(q)}%`, `%${escapeLike(q)}%`)
       : db.prepare('SELECT * FROM customers ORDER BY id DESC').all();
     return ok(res, rows);
   } catch (e: any) {

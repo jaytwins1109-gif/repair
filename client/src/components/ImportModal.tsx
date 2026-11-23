@@ -130,7 +130,12 @@ export function ImportModal({
     if (!report) return;
     const header = ['行号', '失败原因'];
     const lines = [header, ...report.failures.map((f) => [String(f.index + 1), f.reason])];
-    const csv = '\uFEFF' + lines.map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    // Excel 公式注入防护：以 = + - @ 开头的单元格先补单引号，再按 CSV 规则转义双引号
+    const csvCell = (value: string) => {
+      const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
+    const csv = '\uFEFF' + lines.map((row) => row.map(csvCell).join(',')).join('\r\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a');
     a.href = url;

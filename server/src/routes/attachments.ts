@@ -3,15 +3,22 @@ import fs from 'fs';
 import path from 'path';
 import { db, type AttachmentRow, type CaseRow } from '../db';
 import { requireAuth } from '../middleware/auth';
-import { uploadErrorToMessage, uploadImages } from '../middleware/upload';
-import { fail, ok } from '../response';
 import {
-  canViewAttachments,
+  detectImageMime,
+  uploadErrorToMessage,
+  uploadImages,
+  verifyUploadedImages,
+} from '../middleware/upload';
+import { fail, ok } from '../response';
+import { canViewCase } from '../services/access';
+import {
   deleteAttachment,
   listAttachments,
   safeAttachmentPath,
   saveAttachments,
 } from '../services/attachments';
+
+const RESPONSE_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const router = Router();
 
@@ -23,7 +30,7 @@ router.get('/cases/:id/attachments', requireAuth, (req, res) => {
   try {
     const row = getCase(req.params.id);
     if (!row) return fail(res, '案例不存在');
-    if (!canViewAttachments(req.user!, row)) return fail(res, '无权查看该案例附件', 403, 403);
+    if (!canViewCase(req.user!, row)) return fail(res, '无权查看该案例附件', 403, 403);
     return ok(res, listAttachments(Number(req.params.id)));
   } catch (e: any) {
     return fail(res, e.message || '获取附件失败');
@@ -38,14 +45,18 @@ router.get('/attachments/:id/raw', requireAuth, (req, res) => {
     if (!row) return fail(res, '附件不存在');
     const caseRow = getCase(String(row.case_id));
     if (!caseRow) return fail(res, '附件所属案例不存在');
-    if (!canViewAttachments(req.user!, caseRow)) return fail(res, '无权查看该附件', 403, 403);
+    if (!canViewCase(req.user!, caseRow)) return fail(res, '无权查看该附件', 403, 403);
 
     const absolute = safeAttachmentPath(row.relative_path);
     if (!absolute || !fs.existsSync(absolute)) return fail(res, '附件文件不存在');
 
-    res.setHeader('Content-Type', row.mime_type);
+    // 不信任数据库里的 mime_type：以文件头真实类型为准，且只允许三种图片类型
+    const detected = detectImageMime(absolute);
+    const mime = detected && RESPONSE_MIME.has(detected) ? detected : 'image/png';
+    res.setHeader('Content-Type', mime);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'private, no-store');
-    return res.sendFile(path.resolve(absolute));
+    return res.sendFile(path.resolve(absolute), { headers: { 'Content-Type': mime } });
   } catch (e: any) {
     return fail(res, e.message || '读取附件失败');
   }
@@ -70,8 +81,9 @@ router.post(
         (row.author === req.user!.name && ['pending', 'rejected'].includes(row.status));
       if (!canEdit) return fail(res, '只能给本人待审核或已驳回的案例追加图片', 403, 403);
 
-      const files = (req.files as Express.Multer.File[]) || [];
+      let files = (req.files as Express.Multer.File[]) || [];
       if (files.length === 0) return fail(res, '请选择要上传的图片');
+      files = verifyUploadedImages(files);
 
       const existing = listAttachments(Number(req.params.id)).length;
       if (existing + files.length > 9) return fail(res, '一条案例最多上传 9 张图片');

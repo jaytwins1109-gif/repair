@@ -14,9 +14,11 @@ server/data/
 
 # ── 客户现场照片与附件（含现场设备信息，禁止提交） ──────────
 server/uploads/
+uploads/
 
 # ── 自动备份（数据库快照同样含密钥） ────────────────────────
 server/backups/
+backups/
 
 # ── 独立测试库副本（VACUUM INTO 产物，测完整个目录删掉） ─────
 server/verify/.db/

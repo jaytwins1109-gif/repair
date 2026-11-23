@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { db, type AttachmentRow, type CaseRow } from '../db';
-import type { AuthUser } from '../middleware/auth';
+import { db, type AttachmentRow } from '../db';
 
 const UPLOAD_ROOT = path.join(process.cwd(), 'uploads');
 
@@ -10,11 +9,6 @@ export function safeAttachmentPath(relativePath: string) {
   const absolute = path.join(UPLOAD_ROOT, normalized);
   if (!absolute.startsWith(UPLOAD_ROOT + path.sep)) return null;
   return absolute;
-}
-
-export function canViewAttachments(user: AuthUser, row: Pick<CaseRow, 'author' | 'status'>) {
-  if (user.role === 'engineer') return true;
-  return row.status === 'approved' || row.author === user.name;
 }
 
 export function listAttachments(caseId: number) {

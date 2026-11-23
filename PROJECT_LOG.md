@@ -60,6 +60,7 @@
 - **git 归档状态只读核查（第 19 轮）**：用第 16 轮记录的 PortableGit 绝对路径实测——`## No commits yet on master`、`log --all` 空、`rev-parse HEAD` 报 `fatal: Needed a single revision`、`rev-list --all --count=0`、`.git/objects` 0 个对象、`.git/refs` 无文件、无分支/远程/tag/stash；85 个文件全部 `??` 未跟踪（`NON_UNTRACKED_COUNT=0`），全仓无 `.zip/.7z/.tar/.bundle` 归档包。**结论：只有 `git init`，代码完全没有归档（零提交、未 add、未 commit、未 push）**，按第 18 轮「不删、不提交、不 push，等确认」未做任何写操作。
 - **首次 git 归档完成、以后每轮必归档（第 20 轮）**：用户授权「做一下 git 归档，以后每次任务完成也归档，写进规则里」。两份规则文件第 16 / 14 条同步改为「每轮任务完成、编译通过后自动 `git add -A` + `git commit`，中文提交信息；归档仅限本地，除非用户明确要求绝不 push」。已用 PortableGit 绝对路径执行 `git add -A` + `git -c user.name='CodeBuddy' -c user.email='codebuddy@local' commit -m '首次归档：...'`：根目录提交 `c2c7d38`，85 files / 17640 insertions，`COMMIT_COUNT=1`、提交后 `STATUS_LINES=0`（工作区干净）、`REMOTE_COUNT=0`（未配置远程、未 push）。暂存区敏感路径二次校验为空。
 - **项目总结与下一步计划梳理（第 21 轮）**：用户要求「总结一下这个项目做了什么，以及你的下一步计划」并让「继续总结」。本轮零代码改动，只读复核日志摘要、第 19/20 轮记录与 `CODEBUDDY.md` 第 16 条，并实测 git：`c2c7d38`（首次归档）+ `67fdc93`（第 20 轮日志归档）共 **2 个提交**、工作区干净（`## master` 无变更）、无远程未 push；上条摘要写 `COMMIT_COUNT=1` 是第 20 轮提交当时的快照，已在第 38 项更正。按新规则本轮文档改动后自动 `git add -A` + commit 归档。
+- **安全加固五项（第 22 轮）**：① SQL 注入审计——静态扫描 `server/src` 共 195 个 prepare/exec 点、14 个动态模板点，用户输入零拼入 SQL，排序列名/方向改 `SORT_COLUMNS`/`ORDER_DIRECTIONS` 白名单、非法值回落默认；② LIKE 转义——新增 `escapeLike()`+`ESCAPE '\'`，覆盖案例 q、机型/客户搜索与相似排序；③ 附件越权——raw 接口改用共享 `canViewCase()`（与 `caseScope()` 同源），实测 A 200 / B 403；④ 附件类型——响应 MIME 白名单 + `X-Content-Type-Options: nosniff`，上传按 magic bytes 判真实类型并覆盖扩展名，伪装 `.jpg` 的 HTML 上传被拒；⑤ 渲染/导出——`dangerouslySetInnerHTML` 全仓 0 命中，导入失败 CSV 对 `= + - @` 开头单元格加单引号。未碰 `chat.ts` 打分/准入/词典归一化与 `search_cache`。详见第 22 轮逐轮记录。
 
 ### 启动命令
 
@@ -130,6 +131,7 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 36. **归档状态已复核、仍等用户点头（第 19 轮）**：用户问「git 做归档没」，实测仓库**零提交、零对象、零引用、未 add、未 push、无归档压缩包**，与 #30/#35 记录一致；`git check-ignore -v` 七条敏感路径全部命中 `.gitignore`（`server/data/` 第 8 行、`server/uploads/` 第 16 行、`server/backups/` 第 19 行、`*.db` 第 9 行、`.env` 第 27 行、`server/verify/.db/` 第 22 行），首次 commit 清单此前已多次原样贴用户。本机 `user.name`/`user.email` 仍为空，首次提交需 `git -c user.name=... -c user.email=... commit`（不改 git config）。**是否现在执行首次 commit、是否删除 33 条示例案例，仍需用户一句话确认**；本轮按既有指令未提交、未 push、未删数据。
 37. **已解决（第 20 轮）：首次归档与「每轮必归档」规则**——#30/#32/#35/#36 的「首次 commit 待确认」已由用户「做一下 git 归档吧，以后每次任务完成也归档，写进规则里」授权并完成：根目录提交 `c2c7d38`（85 files / 17640 insertions），工作区干净、无远程、未 push；`CODEBUDDY.md` 第 16 条与 `PROJECT_LOG.md` 维护规矩第 14 条同步改为「每轮任务完成、编译通过后自动 `git add -A` + `git commit`，归档仅限本地、绝不擅自 push」。**push 仍需用户明确要求才做**；#29/#31/#35 的「删除 33 条示例案例」仍未执行、仍等逐条确认。
 38. **提交数更正与总结任务（第 21 轮）**：第 20 轮摘要中的 `COMMIT_COUNT=1` 是当时快照；本轮实测 `git log --oneline -5` → `67fdc93`（第 20 轮日志归档）与 `c2c7d38`（首次归档）共 2 条，`rev-list --all --count=2`、工作区干净（`## master` 无变更）、`remote -v` 空（未 push）。已根据用户要求梳理项目已做能力与下一步计划（见第 21 轮记录），并向用户明确：浏览器人工点测、真实上游 402/400/422、删除 33 条示例案例、push 到远程均仍未做。
+39. **第 22 轮安全加固已完成、等用户检查**：五项全部做完并实测通过（SQL 审计清单、LIKE 转义、附件越权、类型安全、渲染/导出注入），清理后开发库零写入（cases=33/附件=0/TMPR22=0）、副本目录已删。本轮严格未碰 `chat.ts` 打分/准入/词典归一化与 `search_cache`，未加任何点外功能；按用户「做完停下等我看」未做删除示例案例、未 push、未加浏览器点测等其它动作。
 
 ---
 
@@ -695,3 +697,35 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **未验证 / 未执行（如实）**：浏览器人工点测（会话列表、弱相关折叠、模型管理页、blob 图片、级联筛选、算分明细还原）仍未做；真实上游 402/400/422 仍未制造；删除 33 条示例案例仍未执行（cases 仍 33）；未 push、未建 tag/分支/远程备份；未跑编译（无代码改动）。
 
 **遗留问题 / 需人工确认**：下一步计划分三类——① 需用户点头才能做：删除 33 条示例案例、配置远程并 push、真实上游错误码实调是否投入 token、初始密码是否更换；② 可由 AI 直接推进（用户一句话即可）：浏览器人工点测辅助、会话过期定时器、独立审核日志表、导入会话持久化、导入模板附件列、llm_calls 清理策略；③ 长期：并发压测、大规模数据迁移。详见未解决问题第 1–4、7、13–15、19–22、27、29、33–35、38 项。
+
+---
+
+### 第 22 轮 · 2026-11-23 — 安全加固五项（SQL 注入 / LIKE 转义 / 附件越权 / 类型安全 / 渲染导出注入）
+
+**用户要求**：只做五项安全加固，做完停下等用户看，不加点外功能；本阶段不碰 `chat.ts` 的打分、准入、词典归一化和 `search_cache`。① SQL 注入审计：列出 `server/src` 所有构造 SQL 点（查询点、是否预编译绑定、有无字符串拼接），重点核 GET /cases 的 q、`caseConditions()`、`FACET_EXPR`、`modelVariantsOf()` 的 IN 列表、ORDER BY；排序列名/方向必须白名单，非法回落默认；清单原样贴出。② LIKE 通配符转义 `% _ \` + ESCAPE，用「%」和「_不显示_」实测返回条数。③ 附件越权：`/api/attachments/:id/raw` 用与案例列表同一个 `caseScope()` 可见性校验；造两个 TMP 账号，B 用自己合法 token 取 A 提交的带附件案例的附件必须 403/404，A 自己 200。④ 附件 Content-Type 不信任数据库 `mime_type`，只允许三种图片值；上传按 magic bytes 判类型不看扩展名；造 `<html>` 内容改 `.jpg` 实测。⑤ 全项目搜 `dangerouslySetInnerHTML` 并贴结果；导入失败行 CSV 对 `= + - @` 开头单元格加单引号并贴样例。交付要改了哪些文件、tsc/build 结果、每项实际输出、脚本走 verify 守卫 + `--db` 副本、未验证项如实列。
+
+**实际改动文件**：
+- 新增 `server/src/services/access.ts`：统一 `caseScope()` / `canViewCase()`（列表、分面、详情、附件同一来源）、`escapeLike()`（`\` / `%` / `_` 前加反斜杠）、`LIKE_ESCAPE_SQL` 常量（`ESCAPE '\'`）。
+- 修改 `server/src/routes/cases.ts`：删除本地重复的 `caseScope` / `canViewCase`；q 关键字 6 处 LIKE、`resolveModel` / `resolveCustomer` 模糊匹配、相似度排序的 5 处 LIKE 全部走 `escapeLike` + `ESCAPE`；新增 `SORT_COLUMNS` / `ORDER_DIRECTIONS` 白名单，非法值回落 `DEFAULT_SORT='repaired_at'` / `DEFAULT_ORDER='DESC'`；上传入口接 `verifyUploadedImages()`。
+- 修改 `server/src/routes/attachments.ts`：raw 与附件列表改用共享 `canViewCase()` 做可见性校验；响应 MIME 改为文件头真实类型且只允许 `image/jpeg|png|webp`，否则 `image/png`，加 `X-Content-Type-Options: nosniff`；追加、上传两处接 `verifyUploadedImages()`。
+- 修改 `server/src/middleware/upload.ts`：新增 `detectImageMime()`（JPEG `FF D8 FF` / PNG `89 50 4E 47 0D 0A 1A 0A` / WEBP `RIFF....WEBP`）与 `verifyUploadedImages()`（落盘后入库前二次校验，非图片删文件并拒绝、真实类型覆盖 `file.mimetype` 与扩展名）。
+- 修改 `server/src/services/attachments.ts`：删除重复的 `canViewAttachments()` 与无用类型导入。
+- 修改 `server/src/routes/models.ts` / `customers.ts`：搜索 LIKE 加 `escapeLike` + `ESCAPE`。
+- 修改 `client/src/components/ImportModal.tsx`：失败行 CSV 导出新增 `csvCell()`，`= + - @` 开头的单元格先补单引号再转义双引号。
+- 新增验证脚本 `server/verify/verify-r22-security.ts`、`verify-r22-sql-audit.mjs`（都走守卫 + `--db` 独立副本）；**未改** `chat.ts`、`search_cache`、词典归一化、配置表数据、前端其它文件。
+- `PROJECT_LOG.md`：摘要、未解决第 39 项、本条记录。
+
+**实际验证过的命令与结果**（验证在 `VACUUM INTO` 副本 `server/verify/.db/r22/data/repair.db` 上，开发库零写入）：
+
+1. SQL 审计清单：`node server/verify/verify-r22-sql-audit.mjs --db=<副本>` → `FILES_SCANNED=28`、`TOTAL_PREPARE_OR_EXEC_SITES=195`、`DYNAMIC_SITES=14`。重点项结论：q 走 6 个 `?` 绑定 + `escapeLike`；`caseConditions()` 各条件均 `= ?` / `LIKE ?` 绑定；`FACET_EXPR` 是静态常量、key 来自 `FACET_KEYS` 枚举；`modelVariantsOf()` 的 IN 用 `variants.map(()=>'?')` 占位符 + `params.push` 绑定；ORDER BY 只插值白名单值；`migration.ts` 的 `ALTER TABLE ... ${definition}` 来自代码内硬编码列定义常量，非用户输入。**14 个动态点里用户输入零拼入 SQL 文本，其余文案/URL/批号模板不进 SQL。**完整 195 行清单原样贴用户。
+2. LIKE 转义：`npx tsx server/verify/verify-r22-security.ts --db=<副本>` → 原始 SQL `symptom LIKE '%%%'` 命中 33/33、`LIKE '%_不显示_%'` 命中 3；接口 `q=%` → `total=0 ids=[]`、`q=_不显示_` → `total=0 ids=[]`、`q=不显示` → `total=3 ids=[32,28,14]`，`LIKE_ESCAPE_OK=true`。
+3. 排序白名单：`sort=created_at); DROP TABLE cases; --` + 恶意 order → `code=0 total=33 CASES_AFTER=33`，`SORT_WHITELIST_OK=true`。
+4. 附件越权：自建 `TMPR22A*`（技术员 A）与 `TMPR22B*`（技术员 B），A 上传带 PNG 附件的 pending 案例 id=39、附件 id=4；`A_RAW status=200 content-type=image/png nosniff=nosniff`；`B_RAW status=403 body={"code":403,"data":null,"message":"无权查看该附件"}`；B 取该案例 `code=403 message="无权查看该案例"`；`ATTACHMENT_SCOPE_OK=true`。
+5. 类型安全：内容 `<html><script>alert(1)</script></html>` 起名 `fake.jpg`、声明 `image/jpeg` 上传 → `code=1 message="仅支持 jpg / png / webp 格式的图片（已按文件内容校验）"`、`FAKE_JPG_CASES_IN_DB=0`、`MAGIC_BYTES_UPLOAD_OK=true`；把真实附件数据库 `mime_type` 篡改为 `text/html` 后再取 → 响应 `content-type=image/png`，`RESPONSE_MIME_WHITELIST_OK=true`。
+6. 渲染/导出：全仓 `client/src` 递归搜索 `dangerouslySetInnerHTML` → `DANGEROUS_HTML_HITS=[]`；高亮/诊断文本用 React 文本节点 + `whitespace-pre-wrap`（`ChatPage.tsx:245/272/295`、`CaseDrawer.tsx:446`）。CSV 样例（escaped 原文）：`"行号","失败原因"\r\n"1","'=1+1"\r\n"2","'@SUM(A1:A9)"\r\n"3","'-cmd|calc"\r\n"4","'+HYPERLINK(""x"")"\r\n"5","普通文本"`，`CSV_SAMPLE_OK=true`。
+7. 编译：在 `server` 目录 `.\node_modules\.bin\tsc.cmd --noEmit` → 退出 0；在根跑 `npm run build --prefix client`（含 client tsc + vite build）→ 退出 0、54 modules、CSS 34.57KB / JS 287.15KB / 3.23s；`read_lints` 对 `server/src` 与 `ImportModal.tsx` → 0 错误。
+8. 清理与红线：验证脚本自建 TMP 账号测后删除，`TMP_REMAINING=0`；副本目录 `server/verify/.db/r22` 与两个 `*-out.txt` 已删除、`DB_ROOT_EXISTS=False`；开发库只读核对 `DEV_CASES=33`、`DEV_ATTACHMENTS=0`、`DEV_TMPR22=0`，四类配置表未写；未碰 `chat.ts` 打分/准入/词典归一化与 `search_cache`。**返工（如实）**：首次归档时验证脚本以仓库根为 cwd，把测试用 1×1 PNG 写到根 `uploads/2026-11/` 并被 `git add -A` 一并提交进 `09a9876`；发现后立即删除该图片、在 `.gitignore` 补 `uploads/` 与 `backups/` 根级规则、给 `verify-r22-security.ts` 加 `process.chdir(<副本目录>)`，并 amend 本轮提交修正。该图是纯 1×1 透明 PNG、非客户现场照片，但按红线附件一律不进 git。修正后在新副本 r22b 上重跑 `verify-r22-security.ts` → 五项全部再次 PASS（LIKE_ESCAPE_OK / SORT_WHITELIST_OK / ATTACHMENT_SCOPE_OK / MAGIC_BYTES_UPLOAD_OK / RESPONSE_MIME_WHITELIST_OK / CSV_SAMPLE_OK 全 true），`ROOT_UPLOADS_EXISTS=False`、测试图片改落在副本内 `server/verify/.db/r22b/uploads/...`，随后整个副本目录与 out 文件已删除、工作区无残留。
+
+**未验证 / 未执行（如实）**：浏览器人工点测（图片 blob 预览、附件越权在真实前端的表现、CSV 下载后用 Excel 实际打开确认不执行）**未做**；真实攻击者构造的 SQLi payload 只测了 ORDER BY 一处，其余靠静态审计；magic bytes 只覆盖 JPEG 头判定与 PNG 真图 + HTML 伪装拒收，WEBP 真图未单独造；`Content-Disposition` 附件下载文件名未改；删除 33 条示例案例、push、浏览器点测等点外动作按用户要求**未做**。
+
+**遗留问题 / 需人工确认**：等用户检查五项安全加固的实际输出与清单；若认可再做浏览器人工点测（CSV 用 Excel 打开、伪装修复后的图片预览）与是否继续处理未解决清单第 39 项以外的历史待办。

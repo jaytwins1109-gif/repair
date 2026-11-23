@@ -4,8 +4,10 @@ import { requireAuth, requireRole, type AuthUser } from '../middleware/auth';
 import { uploadErrorToMessage, uploadImages } from '../middleware/upload';
 import { fail, ok } from '../response';
 import { deleteAttachmentsOfCase, listAttachments, saveAttachments } from '../services/attachments';
+import { canViewCase, caseScope, escapeLike, LIKE_ESCAPE_SQL } from '../services/access';
 import { clearCache } from '../services/cache';
 import { backupDatabase } from '../services/backup';
+import { verifyUploadedImages } from '../middleware/upload';
 
 const router = Router();
 
@@ -37,21 +39,6 @@ function readCaseFilters(query: Record<string, unknown>): CaseFilters {
     q: s('q'),
     scope: s('scope'),
   };
-}
-
-/**
- * 条数统计必须落在当前登录人的可见范围内：
- * 技术员只能看已归档案例 + 自己提交的案例；工程师看全部。
- * 列表接口与分面接口共用此函数，避免两处口径漂移。
- */
-function caseScope(user: AuthUser, scope: string): { sql: string; params: any[] } | { error: string } {
-  if (scope === 'review' && user.role !== 'engineer') return { error: '仅工程师可查看审核队列' };
-  if (scope === 'review') return { sql: "status IN ('pending','rejected')", params: [] };
-  if (scope === 'mine') return { sql: 'author = ?', params: [user.name] };
-  if (user.role === 'technician') {
-    return { sql: '(status = ? OR author = ?)', params: ['approved', user.name] };
-  }
-  return { sql: '1 = 1', params: [] };
 }
 
 /**
@@ -145,9 +132,10 @@ function caseConditions(f: CaseFilters, exclude?: FacetKey, familyMap?: ModelFam
   }
   if (f.q) {
     where.push(
-      '(model LIKE ? OR customer LIKE ? OR symptom LIKE ? OR diagnosis LIKE ? OR solution LIKE ? OR parts LIKE ?)'
+      `(model LIKE ? ${LIKE_ESCAPE_SQL} OR customer LIKE ? ${LIKE_ESCAPE_SQL} OR symptom LIKE ? ${LIKE_ESCAPE_SQL}` +
+        ` OR diagnosis LIKE ? ${LIKE_ESCAPE_SQL} OR solution LIKE ? ${LIKE_ESCAPE_SQL} OR parts LIKE ? ${LIKE_ESCAPE_SQL})`
     );
-    const kw = `%${f.q}%`;
+    const kw = `%${escapeLike(f.q)}%`;
     params.push(kw, kw, kw, kw, kw, kw);
   }
   return { where, params };
@@ -190,11 +178,12 @@ function resolveModel(text: string, id?: number) {
     | ModelRow
     | undefined;
   if (exact) return exact;
-  const combined = db.prepare('SELECT * FROM models WHERE ? LIKE ? OR ? LIKE ?').all(
+  const pattern = `%${escapeLike(value)}%`;
+  const combined = db.prepare(`SELECT * FROM models WHERE ? LIKE ? ${LIKE_ESCAPE_SQL} OR ? LIKE ? ${LIKE_ESCAPE_SQL}`).all(
     value,
-    `%${value}%`,
+    pattern,
     value,
-    `%${value}%`
+    pattern
   ) as ModelRow[];
   return combined[0] || null;
 }
@@ -208,9 +197,9 @@ function resolveCustomer(text: string, id?: number) {
   if (!value) return null;
   const exact = db.prepare('SELECT * FROM customers WHERE name = ?').get(value) as CustomerRow | undefined;
   if (exact) return exact;
-  const fuzzy = db.prepare('SELECT * FROM customers WHERE name LIKE ? OR ? LIKE name').get(`%${value}%`, value) as
-    | CustomerRow
-    | undefined;
+  const fuzzy = db
+    .prepare(`SELECT * FROM customers WHERE name LIKE ? ${LIKE_ESCAPE_SQL} OR ? LIKE name ${LIKE_ESCAPE_SQL}`)
+    .get(`%${escapeLike(value)}%`, escapeLike(value)) as CustomerRow | undefined;
   return fuzzy || null;
 }
 
@@ -264,11 +253,19 @@ function insertCase(user: AuthUser, body: any, files?: Express.Multer.File[]) {
   return { row };
 }
 
+/** 排序白名单：列名与方向都从枚举里取，任何前端传来的其他值一律回落默认，绝不拼进 SQL */
+const SORT_COLUMNS = new Set(['created_at', 'repaired_at', 'updated_at', 'similarity']);
+const DEFAULT_SORT = 'repaired_at';
+const ORDER_DIRECTIONS = new Set(['asc', 'desc']);
+const DEFAULT_ORDER = 'DESC';
+
 router.get('/cases', requireAuth, (req, res) => {
   try {
     const f = readCaseFilters(req.query as Record<string, unknown>);
-    const sort = String(req.query.sort || 'created_at');
-    const order = String(req.query.order || 'desc').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    const rawSort = String(req.query.sort || DEFAULT_SORT);
+    const sort = SORT_COLUMNS.has(rawSort) ? rawSort : DEFAULT_SORT;
+    const rawOrder = String(req.query.order || '').toLowerCase();
+    const order = ORDER_DIRECTIONS.has(rawOrder) ? rawOrder.toUpperCase() : DEFAULT_ORDER;
     const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
     const pageSize = Math.max(1, Math.min(100, parseInt(String(req.query.pageSize || '10'), 10) || 10));
 
@@ -289,11 +286,11 @@ router.get('/cases', requireAuth, (req, res) => {
       orderSql = `CASE WHEN repaired_at IS NULL THEN 1 ELSE 0 END ASC, repaired_at ${order}, created_at ${order}`;
     } else if (sort === 'similarity') {
       if (f.q) {
-        const kw = `%${f.q}%`;
-        orderSql = `(CASE WHEN model LIKE ? THEN 40 ELSE 0 END
-                   + CASE WHEN customer LIKE ? THEN 20 ELSE 0 END
-                   + CASE WHEN symptom LIKE ? THEN 20 ELSE 0 END
-                   + CASE WHEN diagnosis LIKE ? OR solution LIKE ? THEN 10 ELSE 0 END) DESC`;
+        const kw = `%${escapeLike(f.q)}%`;
+        orderSql = `(CASE WHEN model LIKE ? ${LIKE_ESCAPE_SQL} THEN 40 ELSE 0 END
+                   + CASE WHEN customer LIKE ? ${LIKE_ESCAPE_SQL} THEN 20 ELSE 0 END
+                   + CASE WHEN symptom LIKE ? ${LIKE_ESCAPE_SQL} THEN 20 ELSE 0 END
+                   + CASE WHEN diagnosis LIKE ? ${LIKE_ESCAPE_SQL} OR solution LIKE ? ${LIKE_ESCAPE_SQL} THEN 10 ELSE 0 END) DESC`;
         orderParams.push(kw, kw, kw, kw, kw);
       } else {
         orderSql = 'id DESC';
@@ -423,11 +420,6 @@ router.get('/cases/:id', requireAuth, (req, res) => {
   }
 });
 
-function canViewCase(user: AuthUser, row: Pick<CaseRow, 'author' | 'status'>) {
-  if (user.role === 'engineer') return true;
-  return row.status === 'approved' || row.author === user.name;
-}
-
 router.post('/cases', requireAuth, (req, res) => {
   try {
     const result = insertCase(req.user!, req.body || {});
@@ -457,7 +449,7 @@ router.post(
           body.deleteAttachmentIds = [];
         }
       }
-      const files = (req.files as Express.Multer.File[]) || [];
+      const files = verifyUploadedImages((req.files as Express.Multer.File[]) || []);
       const result = insertCase(req.user!, body, files);
       if (result.error) return fail(res, result.error);
       return ok(res, result.row, '案例与图片已提交');
