@@ -1,0 +1,45 @@
+src/services/import.ts:411 [STATIC] const rows = db.prepare('SELECT id FROM cases WHERE import_batch_no = ?').all(batchNo) as { id: number }[]; rows.forEach((row) => deleteAttachmentsOfCase(row.id)); 
+src/services/import.ts:413 [STATIC] db.prepare('DELETE FROM cases WHERE import_batch_no = ?').run(batchNo); db.prepare('DELETE FROM import_batches WHERE batch_no = ?').run(batchNo); 
+src/services/import.ts:414 [STATIC] db.prepare('DELETE FROM import_batches WHERE batch_no = ?').run(batchNo); clearCache(); 
+src/services/llm.ts:41 [STATIC] const rows = db.prepare('SELECT * FROM llm_configs ORDER BY is_active DESC, id ASC').all() as LlmConfigRow[]; return rows.map(rowToPublic); 
+src/services/llm.ts:48 [STATIC] .prepare("SELECT * FROM llm_configs WHERE is_active = 1 AND enabled = 1 ORDER BY id ASC LIMIT 1") .get() as LlmConfigRow | undefined) || null ); 
+src/services/llm.ts:54 [STATIC] return (db.prepare('SELECT * FROM llm_configs WHERE id = ?').get(id) as LlmConfigRow | undefined) || null; }  export interface LlmConfigInput { name?: string; platform?: LlmPlatfor
+src/services/llm.ts:83 [STATIC] const existing = db.prepare('SELECT 1 FROM llm_configs WHERE name = ?').get(name); if (existing) throw new Error('配置名称已存在'); 
+src/services/llm.ts:86 [STATIC] .prepare( `INSERT INTO llm_configs (name, platform, base_url, api_key, model, temperature, max_tokens, timeout_seconds, thinking_enabled, enabled, is_active) 
+src/services/llm.ts:99 [STATIC] const dup = db.prepare('SELECT 1 FROM llm_configs WHERE name = ? AND id <> ?').get(name, id); if (dup) throw new Error('配置名称已存在'); 
+src/services/llm.ts:115 [STATIC] db.prepare( `UPDATE llm_configs SET name = ?, platform = ?, base_url = ?, api_key = ?, model = ?, temperature = ?, max_tokens = ?, timeout_seconds = ?, thinking_enabled = ?, enable
+src/services/llm.ts:127 [STATIC] db.transaction(() => { db.prepare('DELETE FROM llm_configs WHERE id = ?').run(id); 
+src/services/llm.ts:128 [STATIC] db.prepare('DELETE FROM llm_configs WHERE id = ?').run(id); if (row.is_active) { const next = db.prepare('SELECT id FROM llm_configs WHERE enabled = 1 ORDER BY id ASC LIMIT 1').get
+src/services/llm.ts:130 [STATIC] const next = db.prepare('SELECT id FROM llm_configs WHERE enabled = 1 ORDER BY id ASC LIMIT 1').get() as | { id: number } | undefined; if (next) db.prepare('UPDATE llm_configs SET 
+src/services/llm.ts:133 [STATIC] if (next) db.prepare('UPDATE llm_configs SET is_active = 1 WHERE id = ?').run(next.id); } })(); 
+src/services/llm.ts:143 [STATIC] db.transaction(() => { db.prepare('UPDATE llm_configs SET is_active = 0').run(); 
+src/services/llm.ts:144 [STATIC] db.prepare('UPDATE llm_configs SET is_active = 0').run(); db.prepare("UPDATE llm_configs SET is_active = 1, updated_at = datetime('now','localtime') WHERE id = ?").run(id); 
+src/services/llm.ts:145 [STATIC] db.prepare("UPDATE llm_configs SET is_active = 1, updated_at = datetime('now','localtime') WHERE id = ?").run(id); })(); 
+src/services/llm.ts:157 [STATIC] const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined; return row ? row.value : fallback; }  export function getCacheStats() 
+src/services/llm.ts:164 [STATIC] .prepare( `SELECT COALESCE(SUM(CASE WHEN prompt_cache_hit_tokens >= 0 THEN prompt_cache_hit_tokens ELSE 0 END),0) AS hit, COALESCE(SUM(CASE WHEN prompt_cache_miss_tokens >= 0 THEN 
+src/services/llm.ts:193 [STATIC] db.prepare( "INSERT INTO settings (key, value) VALUES ('llm_enabled', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value" ).run(enabled ? '1' : '0'); 
+src/services/llm.ts:201 [STATIC] db.prepare( "INSERT INTO settings (key, value) VALUES ('llm_daily_limit', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value" ).run(String(n)); 
+src/services/llm.ts:209 [STATIC] .prepare("SELECT COUNT(*) AS c FROM llm_calls WHERE kind = 'extract' AND date(created_at) = date('now','localtime')") .get() as { c: number }; return row.c; }  export function list
+src/services/llm.ts:216 [STATIC] .prepare('SELECT * FROM llm_calls ORDER BY id DESC LIMIT ?') .all(Math.min(Math.max(1, limit), 200)) as LlmCallRow[]; }  function logCall(data: { config_id: number | null; platform
+src/services/llm.ts:234 [STATIC] db.prepare( `INSERT INTO llm_calls (config_id, platform, model, kind, success, error, latency_ms, prompt_chars, completion_chars, prompt_cache_hit_tokens, prompt_cache_miss_tokens,
+src/services/llm.ts:463 [STATIC] const models = (db.prepare('SELECT model FROM models').all() as { model: string }[]).map((m) => m.model); const customers = (db.prepare('SELECT name FROM customers').all() as { nam
+src/services/llm.ts:464 [STATIC] const customers = (db.prepare('SELECT name FROM customers').all() as { name: string }[]).map((c) => c.name); const standardHints = (db.prepare('SELECT standard FROM symptom_dict').
+src/services/llm.ts:465 [STATIC] const standardHints = (db.prepare('SELECT standard FROM symptom_dict').all() as { standard: string }[]).map( (s) => s.standard ); 
+src/services/migration.ts:35 [STATIC] const existing = db.prepare('PRAGMA table_info(cases)').all() as { name: string }[]; const names = new Set(existing.map((c) => c.name)); 
+src/services/migration.ts:41 [DYNAMIC] db.exec(`ALTER TABLE cases ADD COLUMN ${definition}`); added.push(name); 
+src/services/migration.ts:50 [STATIC] .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'llm_configs'") .get(); 
+src/services/migration.ts:53 [STATIC] const existing = db.prepare('PRAGMA table_info(llm_configs)').all() as { name: string }[]; const names = new Set(existing.map((c) => c.name)); 
+src/services/migration.ts:59 [DYNAMIC] db.exec(`ALTER TABLE llm_configs ADD COLUMN ${definition}`); added.push(name); 
+src/services/migration.ts:68 [STATIC] .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'llm_calls'") .get(); 
+src/services/migration.ts:71 [STATIC] const existing = db.prepare('PRAGMA table_info(llm_calls)').all() as { name: string }[]; const names = new Set(existing.map((c) => c.name)); 
+src/services/migration.ts:77 [DYNAMIC] db.exec(`ALTER TABLE llm_calls ADD COLUMN ${definition}`); added.push(name); 
+src/services/seedData.ts:83 [STATIC] const insertSymptom = db.prepare('INSERT OR IGNORE INTO symptom_dict (standard, aliases, category) VALUES (?, ?, ?)'); const insertAlias = db.prepare('INSERT OR IGNORE INTO model_a
+src/services/seedData.ts:84 [STATIC] const insertAlias = db.prepare('INSERT OR IGNORE INTO model_alias (canonical, alias) VALUES (?, ?)'); db.transaction(() => { for (const s of SYMPTOM_SEEDS) { symptoms += insertSymp
+src/services/seedData.ts:85 [STATIC] db.transaction(() => { for (const s of SYMPTOM_SEEDS) { symptoms += insertSymptom.run(s.standard, s.aliases, s.category || '').changes; 
+src/services/seedData.ts:101 [STATIC] const info = db.prepare('INSERT INTO models (brand, model, platform, note) VALUES (?, ?, ?, ?)').run(brand, model, '', '种子数据自动创建'); const id = Number(info.lastInsertRowid); 
+src/services/seedData.ts:111 [STATIC] const info = db.prepare('INSERT INTO customers (name, contact, note) VALUES (?, ?, ?)').run(name, '', '种子数据自动创建'); const id = Number(info.lastInsertRowid); 
+src/services/seedData.ts:120 [STATIC] const models = db.prepare('SELECT id, brand, model FROM models').all() as { id: number; brand: string; model: string }[]; const customers = db.prepare('SELECT id, name FROM custome
+src/services/seedData.ts:121 [STATIC] const customers = db.prepare('SELECT id, name FROM customers').all() as { id: number; name: string }[]; // 幂等键含维修日期：同一机器同一故障但不同维修日期视为返修/复发，正常入库 const exists = db.prepare( 'SELECT 1
+src/services/seedData.ts:123 [STATIC] const exists = db.prepare( 'SELECT 1 FROM cases WHERE model = ? AND customer = ? AND symptom = ? AND repaired_at IS ? LIMIT 1' ); 
+src/services/seedData.ts:126 [STATIC] const insert = db.prepare( `INSERT INTO cases (model, customer, symptom, diagnosis, solution, parts, note, repaired_at, source, category, status, author, model_id, customer_id, rev
+src/services/seedData.ts:139 [STATIC] db.transaction(() => { for (const line of CASE_SEEDS) { const cols = line.split('|'); 

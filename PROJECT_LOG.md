@@ -61,6 +61,7 @@
 - **首次 git 归档完成、以后每轮必归档（第 20 轮）**：用户授权「做一下 git 归档，以后每次任务完成也归档，写进规则里」。两份规则文件第 16 / 14 条同步改为「每轮任务完成、编译通过后自动 `git add -A` + `git commit`，中文提交信息；归档仅限本地，除非用户明确要求绝不 push」。已用 PortableGit 绝对路径执行 `git add -A` + `git -c user.name='CodeBuddy' -c user.email='codebuddy@local' commit -m '首次归档：...'`：根目录提交 `c2c7d38`，85 files / 17640 insertions，`COMMIT_COUNT=1`、提交后 `STATUS_LINES=0`（工作区干净）、`REMOTE_COUNT=0`（未配置远程、未 push）。暂存区敏感路径二次校验为空。
 - **项目总结与下一步计划梳理（第 21 轮）**：用户要求「总结一下这个项目做了什么，以及你的下一步计划」并让「继续总结」。本轮零代码改动，只读复核日志摘要、第 19/20 轮记录与 `CODEBUDDY.md` 第 16 条，并实测 git：`c2c7d38`（首次归档）+ `67fdc93`（第 20 轮日志归档）共 **2 个提交**、工作区干净（`## master` 无变更）、无远程未 push；上条摘要写 `COMMIT_COUNT=1` 是第 20 轮提交当时的快照，已在第 38 项更正。按新规则本轮文档改动后自动 `git add -A` + commit 归档。
 - **安全加固五项（第 22 轮）**：① SQL 注入审计——静态扫描 `server/src` 共 195 个 prepare/exec 点、14 个动态模板点，用户输入零拼入 SQL，排序列名/方向改 `SORT_COLUMNS`/`ORDER_DIRECTIONS` 白名单、非法值回落默认；② LIKE 转义——新增 `escapeLike()`+`ESCAPE '\'`，覆盖案例 q、机型/客户搜索与相似排序；③ 附件越权——raw 接口改用共享 `canViewCase()`（与 `caseScope()` 同源），实测 A 200 / B 403；④ 附件类型——响应 MIME 白名单 + `X-Content-Type-Options: nosniff`，上传按 magic bytes 判真实类型并覆盖扩展名，伪装 `.jpg` 的 HTML 上传被拒；⑤ 渲染/导出——`dangerouslySetInnerHTML` 全仓 0 命中，导入失败 CSV 对 `= + - @` 开头单元格加单引号。未碰 `chat.ts` 打分/准入/词典归一化与 `search_cache`。详见第 22 轮逐轮记录。
+- **真实数据闭环验证通过（第 24 轮）**：用户填 5 个决策点并提供真实案例内容，WX2001 技术员上传（id=39 / source=manual / 附件 id=4 / 8×8 PNG 75 字节 head=89504e47）→ WX1001 工程师 approve（status=approved / reviewer=陈立群）→ chat「R740 开机无显示 风扇满转」命中 #39（score=100 / similarity=100 / ScoreTrace `80÷80×100=100` / cases[0]）。只读基线 cases 33→34、sample 33 不变、非 sample 0→1、附件 0→1、缓存 2→1（upload 清缓存+chat 落缓存）。**最大未验证缺口已补上**；真实案例保留不删。详见第 24 轮逐轮记录。
 
 ### 启动命令
 
@@ -698,6 +699,7 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **未验证 / 未执行（如实）**：浏览器人工点测（会话列表、弱相关折叠、模型管理页、blob 图片、级联筛选、算分明细还原）仍未做；真实上游 402/400/422 仍未制造；删除 33 条示例案例仍未执行（cases 仍 33）；未 push、未建 tag/分支/远程备份；未跑编译（无代码改动）。
 
 **遗留问题 / 需人工确认**：下一步计划分三类——① 需用户点头才能做：删除 33 条示例案例、配置远程并 push、真实上游错误码实调是否投入 token、初始密码是否更换；② 可由 AI 直接推进（用户一句话即可）：浏览器人工点测辅助、会话过期定时器、独立审核日志表、导入会话持久化、导入模板附件列、llm_calls 清理策略；③ 长期：并发压测、大规模数据迁移。详见未解决问题第 1–4、7、13–15、19–22、27、29、33–35、38 项。
+41. **真实案例闭环已完成、案例保留（第 24 轮）**：用户明确 5 个决策点并提供真实案例内容（Dell PowerEdge R740 / 某银行数据中心 / VRM 虚焊），WX2001 上传 + WX1001 approve + chat 命中全走通；按用户决策点 4，该案例（id=39, source=manual）**验证完保留不删**，后续删 33 条 sample 时它不在范围，库不会空。auto_approve 上传前只读确认为 `"0"`。备份 `backups/repair-20261123-2001.db`（159744 字节，integrity ok）留存。仍未做：删 sample、push、改密码、清理副本 r23-evidence 与 git 不可达提交 `09a9876`/`a2b0268`、浏览器人工点测。
 
 ---
 
@@ -730,6 +732,30 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **未验证 / 未执行（如实）**：浏览器人工点测（图片 blob 预览、附件越权在真实前端的表现、CSV 下载后用 Excel 实际打开确认不执行）**未做**；真实攻击者构造的 SQLi payload 只测了 ORDER BY 一处，其余靠静态审计；magic bytes 只覆盖 JPEG 头判定与 PNG 真图 + HTML 伪装拒收，WEBP 真图未单独造；`Content-Disposition` 附件下载文件名未改；删除 33 条示例案例、push、浏览器点测等点外动作按用户要求**未做**。
 
 **遗留问题 / 需人工确认**：等用户检查五项安全加固的实际输出与清单；若认可再做浏览器人工点测（CSV 用 Excel 打开、伪装修复后的图片预览）与是否继续处理未解决清单第 39 项以外的历史待办。
+
+---
+
+### 第 24 轮 · 2026-11-23 — 真实数据闭环验证（上传→审核→检索命中）
+
+**用户要求**：分两段，第一段补证（已完成），第二段真实数据闭环。用户填 5 个决策点：WX2001 上传走 pending→工程师 approve；真实案例内容由用户下一条消息提供（不自造）；上传前只读查 auto_approve（值 0 继续）；验证完案例保留不删；清理清单澄清句。随后用户提供案例内容（Dell PowerEdge R740 / 某银行数据中心 / VRM 虚焊等完整字段 + 8×8 纯色 PNG），要求严格照抄、每步四段式贴原始输出、任一步失败停下不自修代码。
+
+**实际改动文件**：业务代码零改动。新增 `server/verify/verify-r24-real-closure.cjs`（真实业务接口执行脚本）、`verify-r24-parse-check.cjs`（只读解析 chat 响应纠正字段误用）、`verify-r24-schema.cjs`（只读表结构确认）；`PROJECT_LOG.md`（摘要、第 41 项、本条记录）。真实案例、附件、备份、副本均为数据/文件产物，非代码改动。
+
+**实际验证过的命令与结果**：
+
+1. 上传前只读：`node verify-r24-schema.cjs` → `CASES_SOURCE_LINE=... source TEXT NOT NULL DEFAULT 'manual'`、`ATT_COLS=[id,case_id,original_name,stored_name,relative_path,mime_type,size,uploader,created_at]`、`USERS_WX2001={id:3,...technician}`、`USERS_WX1001={id:1,...engineer}`；`auto_approve` 前一轮已查 `{"value":"0"}`；种子密码 `Test@1234`（`db/index.ts:238`）。服务端口实测 `PORT_3001_OPEN=True`、`PORT_3010_OPEN=False`、`PORT_5173_OPEN=True`。
+2. 基线（只读）：`BASELINE_BEFORE={"cases":33,"sample":33,"nonSample":0,"attachments":0,"cache":2}`；`PNG_HEAD_HEX=89504e47`、`PNG_BYTES=75`（8×8 纯色 PNG，文件头正确）。
+3. WX2001 登录 → 200、`user={id:3,emp_no:WX2001,name:李文博,role:technician}`、token 到手。
+4. 上传：`POST /api/cases/upload` → 200 `code=0`，案例 id=39、`status=pending`、`source="manual"`（非 sample，符合决策点）、author=李文博；附件 id=4、`relative_path=2026-11/30ed5760a3d93b574808cb76c496be5e.png`、`mime_type=image/png`、size=75；落盘 `D:\codebuddy\repairs\server\uploads\2026-11\30ed5760a3d93b574808cb76c496be5e.png`、`LANDED_FILE_EXISTS=true`。所有字段严格照抄用户提供。
+5. WX1001 登录 → 200、`user={id:1,...陈立群,engineer}`；`POST /api/cases/39/approve` → 200 `code=0`、`status=approved`、`reviewer="陈立群"`、`reviewed_at=2026-11-23 20:07:41`、`message=已通过并归档`。
+6. 检索：`POST /api/chat {"message":"R740 开机无显示 风扇满转"}` → 200；`data.cases` 共 5 条，**id=39 在 cases[0]**、`score=100`、`similarity=100`、`matched=[戴尔 R740,无显示,风扇满转]`、`source=manual`；`summary` 写「推荐优先参考 #39」；`scoreTrace={"caseId":39,"tokens":[model 40 命中 R740, symptom 20 命中 无显示, symptom 20 命中 风扇满转],"totalWeight":80,"hitWeight":80,"formula":"80 ÷ 80 × 100 = 100"}`；`weakCases=[]`、`admittedCount=5`、`route=dict`、`fallbackReason=所有现象词已被词典覆盖，无需调用模型`。
+7. 脚本字段误用纠正：执行脚本用 `data.list` 判定导致 `NEW_CASE_IN_LIST=false`（**脚本 bug，非未命中**），未重试业务接口；只读脚本 `verify-r24-parse-check.cjs` 解析已落盘原始响应 → `CHAT_LIST_FIELD=data.cases`、`CHAT_LIST_COUNT=5`、`NEW_CASE_IN_LIST=true`、`NEW_CASE_ITEM={id:39,...,score:100,similarity:100}`。
+8. 基线变化（只读）：`BASELINE_AFTER={"cases":34,"sample":33,"nonSample":1,"attachments":1,"cache":1}`、`DELTA={"cases":1,"sample":0,"nonSample":1,"attachments":1,"cache":-1}`（缓存 2→1 因上传清缓存 + chat 落 1 条）。
+9. 备份（第二段）：`d:/codebuddy/repairs/backups/repair-20261123-2001.db`、159744 字节、`BACKUP_INTEGRITY=ok`、`BACKUP_CASES=33`（备份时点，上传前）；`.gitignore:21:backups/` 命中、未进 git 状态。
+
+**未验证 / 未执行（如实）**：浏览器人工点测（真实图片 blob 预览、CSV 用 Excel 打开）未做；approved 案例附件跨技术员可见性未测；git 历史 uploads 图片清理未执行；33 条 sample 未删、未 push、未改密码；副本 `r23-evidence` 与 git 不可达提交 `09a9876`/`a2b0268` 未清理（等确认）。真实案例 id=39 按用户决策点 4 保留。
+
+**遗留问题 / 需人工确认**：见未解决第 41 项——真实案例保留；删 sample/push/改密码/清理副本与 git 历史/浏览器点测仍需用户决定。
 
 ---
 
