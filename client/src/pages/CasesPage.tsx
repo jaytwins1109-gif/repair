@@ -108,8 +108,9 @@ export function CasesPage({
     };
     api
       .getCaseFacets(params)
-      .then((res) => {
-        if (active) setFacets(res);
+      .then((res: any) => {
+        // 兼容后端 { facets, total, applied } 包装：取内层 facets，避免把 wrapper 当 CaseFacets 用导致 facets.customer.map 崩溃
+        if (active) setFacets(res?.facets ?? res);
       })
       .catch(() => {
         if (active) setFacets(EMPTY_FACETS);

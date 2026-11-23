@@ -31,6 +31,21 @@ export interface MigrationReport {
   addedColumns: string[];
 }
 
+/** 第 26 轮：独立审核日志表，approve/reject 除更新 cases 行外各写一条不可变记录 */
+function ensureAuditLogsTable(db: Database.Database) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      case_id    INTEGER NOT NULL,
+      operator   TEXT NOT NULL,
+      action     TEXT NOT NULL,
+      reason     TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+    )
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_audit_logs_case ON audit_logs(case_id)');
+}
+
 function ensureCaseColumns(db: Database.Database) {
   const existing = db.prepare('PRAGMA table_info(cases)').all() as { name: string }[];
   const names = new Set(existing.map((c) => c.name));
@@ -101,5 +116,6 @@ export function runMigrations(db: Database.Database): MigrationReport {
   const addedColumns = ensureCaseColumns(db);
   ensureLlmConfigColumns(db);
   ensureLlmCallColumns(db);
+  ensureAuditLogsTable(db);
   return { addedColumns };
 }

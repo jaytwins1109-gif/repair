@@ -232,7 +232,8 @@ function validateRow(row: string[], mapping: Record<string, number>, index: numb
   if (!values.solution) issues.push('解决方案为空');
   if (!values.model) issues.push('型号为空');
   if (values.category && !CASE_CATEGORIES.includes(values.category)) {
-    issues.push('故障分类不在可选值里');
+    // 回显用户原始值放到最前，既方便对照修正，也让“导出失败行 CSV”能真实覆盖公式注入防护
+    issues.push(`${values.category}：故障分类不在可选值里`);
   }
   if (!isValidRepairDate(values.repairDate)) {
     issues.push('维修日期不是合法日期（应为 YYYY-MM-DD）');
@@ -309,7 +310,7 @@ export function executeImport(
     `INSERT INTO cases
      (model, customer, symptom, diagnosis, solution, parts, note, repaired_at, category, status, author,
       model_id, customer_id, reviewer, reviewed_at, reject_reason, import_batch_no)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)`
   );
 
   const transaction = db.transaction(() => {

@@ -5,6 +5,7 @@ import { uploadErrorToMessage, uploadImages } from '../middleware/upload';
 import { fail, ok } from '../response';
 import { deleteAttachmentsOfCase, listAttachments, saveAttachments } from '../services/attachments';
 import { canViewCase, caseScope, escapeLike, LIKE_ESCAPE_SQL } from '../services/access';
+import { writeAuditLog } from '../services/audit';
 import { clearCache } from '../services/cache';
 import { backupDatabase } from '../services/backup';
 import { verifyUploadedImages } from '../middleware/upload';
@@ -591,6 +592,7 @@ router.post('/cases/:id/approve', requireRole('engineer'), (req, res) => {
       )
       .run(req.user!.name, req.params.id);
     if (!info.changes) return fail(res, '案例不存在');
+    writeAuditLog(Number(req.params.id), req.user!.name, 'approve', '');
     clearCache();
     return ok(res, db.prepare('SELECT * FROM cases WHERE id = ?').get(req.params.id), '已通过并归档');
   } catch (e: any) {
@@ -609,6 +611,7 @@ router.post('/cases/:id/reject', requireRole('engineer'), (req, res) => {
       )
       .run(req.user!.name, reason, req.params.id);
     if (!info.changes) return fail(res, '案例不存在');
+    writeAuditLog(Number(req.params.id), req.user!.name, 'reject', reason);
     clearCache();
     return ok(res, db.prepare('SELECT * FROM cases WHERE id = ?').get(req.params.id), '已驳回');
   } catch (e: any) {

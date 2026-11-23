@@ -19,6 +19,12 @@ import { backupDatabase } from './services/backup';
 import { ok, fail } from './response';
 
 cleanupExpiredSessions();
+// 第 26 轮：长期运行进程每小时清理一次过期会话，避免 chat_sessions 无限累积。
+// 注意：expires_at 存的是毫秒时间戳整数（见 services/auth.ts createSession），
+// 因此用 cleanupExpiredSessions() 的 Date.now() 比较语义，而不是 datetime('now','localtime') 文本比较。
+const SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+const sessionCleanupTimer = setInterval(cleanupExpiredSessions, SESSION_CLEANUP_INTERVAL_MS);
+sessionCleanupTimer.unref();
 const startupBackup = backupDatabase(db);
 console.log('[migration]', JSON.stringify(migrationReport));
 console.log('[seed]', JSON.stringify(seedReport));

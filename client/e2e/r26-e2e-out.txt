@@ -1,0 +1,31 @@
+===== 登录 =====
+LOGIN_URL=http://127.0.0.1:5173/
+LOGIN_ERRORS=[]
+BODY_TEXT_HEAD="主板维修助手\nREPAIR AGENT\nWORKSPACE\n对话检索\n案例库\n机型管理\n客户管理\n待审核\n模型管理\n设置\n会话记录\n＋ 新建\n暂无历史会话，直接提问即可自动创建\nLOCAL DEMO · v1.0\nAUTH ENABLED\n规则检索引擎 · SQLite\n对话检索\n描述现象，调出历史维修记录\n上传案例\n陈\n陈立群\n工程师\nWX1001 · 硬件维修工程师\n01\nSERVER BOA"
+NAV_CASES_BTN_COUNT=1
+AFTER_NAV_URL=http://127.0.0.1:5173/
+AFTER_NAV_BODY="主板维修助手\nREPAIR AGENT\nWORKSPACE\n对话检索\n案例库\n机型管理\n客户管理\n待审核\n模型管理\n设置\n会话记录\n＋ 新建\n暂无历史会话，直接提问即可自动创建\nLOCAL DEMO · v1.0\nAUTH ENABLED\n规则检索引擎 · SQLite\n案例库\n浏览、筛选与管理全部案例\n上传案例\n陈\n陈立群\n工程师\nWX1001 · 硬件维修工程师\n共 1 条案例\n全部客户\n某银行数据中心（1）\n全部型号\nDell PowerEdge R740（1）\n全部故障分类\n未分类（1）\n全部状态\n已存档（1）\n全部来源\n示例数据\n真实录入\n批量导入\n按维修日期\n按创建时间\n按更新时间"
+AFTER_NAV_HTML_LEN=65471
+AFTER_NAV_ERRORS=[]
+IMPORT_BTN_COUNT=1
+===== 场景 A：CSV 失败行导出注入防护 =====
+XLSX_PATH=D:\codebuddy\repairs\client\e2e\r26-fail.xlsx
+PARSED_PREVIEW_VISIBLE=true
+EXEC_BUTTON_COUNT=1
+AFTER_EXEC_BODY="1\n戴尔 R740\n/ 某测试客户R26\n/ 电容鼓包专项测试\n不合格：=1+1：故障分类不在可选值里\n客户库中不存在：\n自动创建\n跳过此行\n本次导入直接归档（仅工程师可用；不勾选则全部 pending）\n确认导入 1 行\n03 / 导入报告\n\n批次 IMP-20261123-760BAE60 · 共 1 行 · 成功 0 · 跳过 0 · 失败 1\n\n导出失败行 CSV\n历史导入批次\nIMP-20261123-760BAE60\n陈立群 · 2026-11-23 20:38:15\n共 1 / 成功 0 / 跳过 0 / 失败 1\n撤销此批次\nIMP-20261123-6134D7CC\n陈立群 · 2026-11-23 20:37:06\n共 1 / 成功 0 / 跳过 0 / 失败 1\n撤销此批次\nIMP-20261123-6F63DEB1\n陈立群 · 2026-11-23 20:27:28\n共 1 / 成功 0 / 跳过 0 / 失败 1\n撤销此批次\nIMP-20261123-4ABBF24D\n陈立群 · 2026-11-23 20:26:06\n共 1 / 成功 0 / 跳过 0 / 失败 0\n撤销此批次\nIMP-20261123-B6FCA56F\n陈立群 · 2026-11-23 20:24:37\n共 1 / 成功 0 / 跳过 0 / 失败 0\n撤销此批次\n导入完成，请查看报告"
+EXPORT_BUTTON_COUNT=1
+DOWNLOAD_SUGGESTED=import-failures-IMP-20261123-760BAE60.csv
+CSV_RAW="﻿\"行号\",\"失败原因\"\r\n\"1\",\"'=1+1：故障分类不在可选值里\""
+CSV_CONTAINS_ESCAPED_FORMULA=true
+CSV_CONTAINS_BARE_FORMULA=false
+===== 场景 B：图片真实预览 =====
+MODAL_GONE=true
+TABLE_HAS_CASE=true
+DETAIL_BTN_COUNT=1
+AFTER_DETAIL_BODY="主板维修助手\nREPAIR AGENT\nWORKSPACE\n对话检索\n案例库\n机型管理\n客户管理\n待审核\n模型管理\n设置\n会话记录\n＋ 新建\n暂无历史会话，直接提问即可自动创建\nLOCAL DEMO · v1.0\nAUTH ENABLED\n规则检索引擎 · SQLite\n案例库\n浏览、筛选与管理全部案例\n上传案例\n陈\n陈立群\n工程师\nWX1001 · 硬件维修工程师\n共 1 条案例\n全部客户\n某银行数据中心（1）\n全部型号\nDell PowerEdge R740（1）\n全部故障分类\n未分类（1）\n全部状态\n已存档（1）\n全部来源\n示例数据\n真实录入\n批量导入\n按维修日期\n按创建时间\n按更新时间\n按相似度\n降序 ↓\n全部重置\n一键清除示例数据\n批量导入\n上传案例\n已选条件\n（无，下拉里的条数即为当前可见案例分布）\nID\t型号\t客户\t故障现象\t诊断 / 方案\t状态\t维修日期\t创建时间\t操作\n\n"
+RAW_REQUESTS=[{"url":"http://127.0.0.1:5173/api/attachments/4/raw","status":200},{"url":"http://127.0.0.1:5173/api/attachments/4/raw","status":200}]
+IMG_TAGS=[{"src":"blob:http://127.0.0.1:5173/8139a49f-b790-420f-98b8-4f87220f4f34","naturalWidth":8,"naturalHeight":8}]
+IMAGE_LOADED=true
+IMAGE_IS_BLOB_URL=true
+RAW_FETCH_200=true
+FINAL_CONSOLE_ERRORS=[]

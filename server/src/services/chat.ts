@@ -402,23 +402,39 @@ export async function chatSearchSmart(rawText: string, userEmpNo: string): Promi
     return result;
   }
 
-  // 3) 确实需要模型：调用一次（含重试/降级逻辑在 llm 服务内）
+  // 3) 确实需要模型：调用一次（含重试/降级逻辑在 llm 服务内）。
+  //    上游 4xx/5xx、网络/超时、空抽取或未预期异常，都必须落到本地规则兜底，
+  //    绝不能以 source:'ai' + 空 cases 的面貌返回给前端（那会让人误以为模型真的没找到）。
   recordRoute('llm');
-  const outcome = await extractKeywordsWithLlm(text, userEmpNo);
   let result: ChatResult;
-  if (outcome.ok && outcome.keywords) {
-    result = chatSearch(text, {
-      keywords: outcome.keywords,
-      source: 'ai',
-      aiExpanded: outcome.keywords.expanded,
-      aiExpandedByTerm: outcome.keywords.expandedByTerm,
-      route: 'llm',
-    });
-  } else {
+  try {
+    const outcome = await extractKeywordsWithLlm(text, userEmpNo);
+    const kw = outcome.keywords;
+    const hasEffectiveKeywords =
+      !!kw && (!!kw.model || !!kw.customer || (Array.isArray(kw.symptoms) && kw.symptoms.length > 0));
+    if (outcome.ok && hasEffectiveKeywords && kw) {
+      result = chatSearch(text, {
+        keywords: kw,
+        source: 'ai',
+        aiExpanded: kw.expanded,
+        aiExpandedByTerm: kw.expandedByTerm,
+        route: 'llm',
+      });
+    } else {
+      result = chatSearch(text, {
+        source: 'rule',
+        route: 'dict',
+        fallbackReason:
+          outcome.reason ||
+          (outcome.ok ? '模型未抽取到有效检索条件，已回退规则匹配' : 'LLM 不可用，已回退规则匹配'),
+      });
+    }
+  } catch (e: any) {
+    // LLM 链路任何未预期异常一律本地规则兜底，不把异常冒泡成前端 code=1
     result = chatSearch(text, {
       source: 'rule',
       route: 'dict',
-      fallbackReason: outcome.reason || 'LLM 不可用，已回退规则匹配',
+      fallbackReason: `模型调用异常，已回退规则匹配：${String(e?.message || e).slice(0, 120)}`,
     });
   }
   setCached(queryNorm, result.cases.map((c) => c.id), result.source === 'ai' ? 'ai' : 'dict');

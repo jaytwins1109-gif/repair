@@ -95,13 +95,13 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 
 ### 未解决问题 / 待人工确认
 
-1. 过期会话只在**后端启动时批量清理**、在请求命中时惰性删除；长期运行的进程没有后台定时器持续清理，过期行会累积（不影响正确性）。是否加定时器待确认。
+1. 已解决（第 26 轮）：后端启动时批量清理 + 请求惰性删除之外，`index.ts` 增加每小时定时器调用 `cleanupExpiredSessions()`；实测过期假 session 被删、真 token `/auth/me` 仍 200。采用毫秒整数 `expires_at <= Date.now()` 语义（用户曾建议 `datetime('now','localtime')` 文本比较，与真实存储类型不符未采用）。
 2. 同一账号允许多处登录、多 token 并存，没有互斥登录或强制下线机制。
 3. token 存于前端 `localStorage`，有 SPA 固有 XSS 风险；无刷新续期，12 小时到期后需重新登录。
 4. 无密码修改 / 找回功能；初始密码 `Test@1234` 是否在正式交付前更换，需人工确认。
 5. 已解决：附件真实上传与鉴权看图已在第 6 轮完成。
 6. 已解决（第 7 轮接 LLM，第 9 轮落语义）：对话检索已接 OpenAI 兼容 LLM 做条件抽取 + 规则兜底，第 9 轮新增现象/机型词典把同义说法归一化并扩展匹配，打分改成词元覆盖率×字段权重，卡片带命中说明与来源标识。仍未用向量库/嵌入，卡片“相似度”是加权覆盖率不是语义向量相似度；LLM 只抽取检索条件与扩展词、不生成结论，案例只来自数据库命中。真实外网调用需工程师填有效密钥后人工验证（本轮仍无真实密钥，未做外网实调）。
-7. 审核只记录 reviewer / reviewed_at / reject_reason 三个字段在案例行上，没有独立审核日志表，无法追溯多次审核历史。
+7. 已解决（第 26 轮）：新增独立 `audit_logs` 表（case_id/operator/action/reason/created_at + case_id 索引），approve/reject 成功后各写一条；假案例 id=40 实测 reject→resubmit→approve 两条日志，测后清理恢复 `CASES=1 / AUDIT=0`。原案例行三字段保留不变。
 8. 自动加载规则文件 `CODEBUDDY.md` 是第 3 轮新建；按 CodeBuddy 规则机制，需**新建会话**后才保证自动加载，请人工确认当前会话是否已生效。
 9. 旧库升级依赖 `CREATE TABLE IF NOT EXISTS` 与一次性迁移；已实测 4 条案例全部保留并成功回填 4 个 model_id、4 个 customer_id，但未做大规模数据迁移或并发压测。
 10. 浏览器端人工点测（各角色按钮显隐、图片预览、导入向导、驳回原因输入）未由 AI 实际执行，需人工确认。
@@ -121,14 +121,14 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 24. 已解决（第 14 轮）：前置拦截小瑕疵（第 11 轮发现）——「开机不显示 主板有糊味」曾被误判「全部已覆盖」而跳过 LLM，根因是规则抽取在词典命中「不显示」后丢弃了未覆盖的「主板有糊味」。第 14 轮已改为 `norm.standards` 非空时仍把未覆盖片段原样保留为 `source=raw` 词元，前置拦截降到单个现象词粒度；实测该句 `route=llm / source=ai`，「联想SR650 华为 开机不显示 风扇满转」仍 `route=dict`。附注：第 13 轮逐轮记录末尾结论行「四项中 ②④ 已落地、①③ 未做」写反了，正确状态是「①未做 ②已做 ③已做 ④未做」，属总结行笔误（代码核对表格无误）；按「只追加不改写历史条目」规矩保留第 13 轮原文，在此更正。
 25. 已解决（第 12 轮）：API Key 被测试脚本清空事故——根因是第 9 轮 `tmp-backup-check.ts` 用 `UPDATE llm_configs SET api_key='测试值' WHERE is_active=1` 覆盖了生效配置的真密钥，再 `UPDATE ... SET api_key=''` 清空，从不保存原值；第 9 轮 `tmp-cleanup.ts` 也曾对配置表做 DELETE/UPDATE。用户已重新填 key。已立硬规矩（维护规矩第 11 条 / CODEBUDDY 第 13 条）：测试/种子/迁移/备份一律禁止写这三类配置数据，备份密钥验证必须在独立测试库做。后续所有脚本仅走鉴权 API 或独立库，不再直连开发库配置表写入。
 26. 历史 `llm_calls` 中旧逻辑写入的 0/0（尤其 connect 类型）无法与真实 0 区分；新逻辑以 -1 表示未采集，但旧行未做数据迁移（llm_calls 不在红线四类内，但无必要改动）。当前 extract 已采集 4 条（含真实值），命中率显示正常；connect 类型的 hit/miss 现在也会落库。
-27. 第 14 轮新增的 402/400/422 上游提示只用本地 mock 验证了「状态码→中文提示」映射，真实上游只实调了 401（无效 key，界面 toast 原文已核）；402/400/422 的真实上游响应未逐一制造。浏览器人工点测（点「测试连接」看 toast、算分明细展开）仍未由 AI 执行，需人工确认。第 12 轮遗留的「deepseek-flash 模型 id 是否可用」疑问已消除：本轮真实抽取调用以 `deepseek-flash` 成功返回 `source=ai`。
+27. 已解决（第 26 轮）：真实上游 401（错误 key，原文含 request_id）、400（无效 model 名，业务映射「请求体格式错误（400）」）、422（缺 messages，上游原文）均已实调；402 仍为本地 mock 文案验证（账户余额不足需真实欠费账户，未制造）。「deepseek-flash 模型 id 是否可用」疑问已消除。浏览器人工点测（点「测试连接」看 toast、算分明细展开）仍未由 AI 执行。另：任务四暴露的「LLM 失败却返回 `source:'ai'`+空 cases」降级漏洞已修复并实测（第 26 轮逐轮记录第 5 项）。
 28. 已解决（第 16 轮，用户已拍板）：第 15 轮「弱相关补足到 10 条」已取消，改为未达阈值单独折叠「弱相关，仅供参考」、最多 3 条；没有任何案例通过硬性准入时如实返回「未找到」，不硬塞案例。AI 扩展词不参与准入。设置页文案同步。浏览器人工点测未做。
 29. **案例清理待用户拍板**：只读审计确认开发库 33 条 cases 全部 `source=sample` / `author=系统`、无一条由用户界面或导入录入；id 1–3 来自 `db/index.ts:225-230` 的 `seed()`（整表为空才插，后被 `migration.ts` 标 sample），id 9–36 来自 `seedData.ts:122-127` 的 `seedCases()`，id 37/38 是第 10 轮判重键加 `repaired_at` 后 `runSeedAll()`（`db/index.ts:282` 每次进程启动无条件执行）重复运行补插的（`created_at` 晚 1h26m）。**结论：种子流程重复运行插了新行，不是临时脚本、也不是导入。** 删除范围有两种方案（只删 37/38，或连 1–36 示例数据一起清），且删完服务一重启会被种子回灌，必须先给 `runSeedAll()`/`seed()` 加「只播种一次」保护。按用户「查完先停下来告诉我、确认后删」要求，本轮**未删除任何行**，cases 总数仍 33，待用户确认范围与是否一并修种子逻辑。附件表 0 行；`search_cache` 2 行（`开机不显示灯不亮`→[30]、另一条→[]）。
 30. **git 首次 commit 待用户确认**：仓库已 `git init`（PortableGit 2.55.0），`git status --short --untracked-files=all` 清单已原样贴出，`check-ignore -v` 验证 `server/data/repair.db`、`server/uploads/*`、`server/backups/*`、`.env`、`.codebuddy/*`、`server/verify/.db/*` 全被排除；按用户「确认无误再提交」要求**本轮未 commit、未 push**。本机 git 无 `user.name`/`user.email`，下轮提交需 `git -c user.name=... -c user.email=... commit`（不改 git config）。浏览器人工点测（会话列表/切换导航页/弱相关折叠/设置页文案）未做。
 31. **第 17 轮更新（#29）**：种子回灌机制已修（见第 17 轮记录），四次真实后端启动验证通过；但**删除 33 条示例案例仍未执行**，删除清单（id/型号/客户/现象/source/import_batch_no）已原样贴用户，按本轮「这次不要直接提交 / 不要删」的计划停在确认前，开发库 `cases` 仍 33。
 32. **第 17 轮更新（#30）**：`git status --short --untracked-files=all` 完整清单与 `.gitignore` 全文再次原样贴出，`check-ignore -v` 六条敏感路径全部命中；**仍未 commit、未 push**，等用户一句话确认。
 33. **新增待确认（第 17 轮）**：① 会话落库的浏览器人工点测（案例库 ↔ 对话检索切换、重开历史会话展开「算分明细」核对词元/分母/分数/命中编号/来源标识）**未做，标未验证**；② `migration.ts` 既有 `UPDATE settings` / `UPDATE llm_configs` / `DELETE FROM cases WHERE symptom='测试'` 与红线 #13「迁移禁止写配置表」口径需复核，本轮**未改动**；③ 案例库 `model`/`customer` 由旧 `LIKE '%x%'` 改为精确 `= ?` 以对齐分面值，属行为变更，需人工确认是否接受；④ 真实上游 402/400/422 仍未制造（沿用第 27 项）。
-34. **第 18 轮更新（#33 逐项销账）**：② **已修**——`migration.ts` 收敛为纯结构变更，`UPDATE settings` / `UPDATE llm_configs` / `DELETE FROM cases` 及全部 `UPDATE cases` 已删除，`MIGRATION_DATA_WRITE_STATEMENTS=0`，独立副本真实启动一次后 `CONFIG_UNCHANGED=true`；③ **已修**——型号过滤改同族 `model IN (...)`、分面按规范值合并，不再出现「SR650:7 + 联想 SR650:2」拆分且选「SR650」不漏数据（`customer` 仍为精确 `=`，未改）；① 会话落库浏览器人工点测**仍未做，标未验证**；④ 真实上游 402/400/422 **仍未跑**（只有第 14 轮本地 mock 映射与真实 401 实调）。
+34. **第 18 轮更新（#33 逐项销账）**：② **已修**——`migration.ts` 收敛为纯结构变更，`UPDATE settings` / `UPDATE llm_configs` / `DELETE FROM cases` 及全部 `UPDATE cases` 已删除，`MIGRATION_DATA_WRITE_STATEMENTS=0`，独立副本真实启动一次后 `CONFIG_UNCHANGED=true`；③ **已修**——型号过滤改同族 `model IN (...)`、分面按规范值合并，不再出现「SR650:7 + 联想 SR650:2」拆分且选「SR650」不漏数据（`customer` 仍为精确 `=`，未改）；① 会话落库浏览器人工点测**仍未做，标未验证**；④ 真实上游 400/422/401 已于第 26 轮实调完成（402 仍 mock），详见第 26 轮记录；② ③ 保持已修；① 浏览器人工点测仍未做。
 35. **删除与提交仍待用户点头（第 18 轮）**：#29/#31 的 33 条示例案例清单、#30/#32 的 `git status --short --untracked-files=all` 完整清单与 `.gitignore` 全文已再次原样贴出；按用户「不要删、不要提交、不要 push，等我确认」**未删任何行、未 `git add` / commit、未 push**，开发库 `cases` 仍 33。用户明确知悉「清除示例数据会把 33 条全删光、库会变空」，要逐条看完清单再点头。三句原话完整实测已单独补发一次（未重跑，沿用第 14/16 轮留档数据，未跑/未留档项如实标注）。
 36. **归档状态已复核、仍等用户点头（第 19 轮）**：用户问「git 做归档没」，实测仓库**零提交、零对象、零引用、未 add、未 push、无归档压缩包**，与 #30/#35 记录一致；`git check-ignore -v` 七条敏感路径全部命中 `.gitignore`（`server/data/` 第 8 行、`server/uploads/` 第 16 行、`server/backups/` 第 19 行、`*.db` 第 9 行、`.env` 第 27 行、`server/verify/.db/` 第 22 行），首次 commit 清单此前已多次原样贴用户。本机 `user.name`/`user.email` 仍为空，首次提交需 `git -c user.name=... -c user.email=... commit`（不改 git config）。**是否现在执行首次 commit、是否删除 33 条示例案例，仍需用户一句话确认**；本轮按既有指令未提交、未 push、未删数据。
 37. **已解决（第 20 轮）：首次归档与「每轮必归档」规则**——#30/#32/#35/#36 的「首次 commit 待确认」已由用户「做一下 git 归档吧，以后每次任务完成也归档，写进规则里」授权并完成：根目录提交 `c2c7d38`（85 files / 17640 insertions），工作区干净、无远程、未 push；`CODEBUDDY.md` 第 16 条与 `PROJECT_LOG.md` 维护规矩第 14 条同步改为「每轮任务完成、编译通过后自动 `git add -A` + `git commit`，归档仅限本地、绝不擅自 push」。**push 仍需用户明确要求才做**；#29/#31/#35 的「删除 33 条示例案例」仍未执行、仍等逐条确认。
@@ -702,6 +702,8 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **遗留问题 / 需人工确认**：下一步计划分三类——① 需用户点头才能做：删除 33 条示例案例、配置远程并 push、真实上游错误码实调是否投入 token、初始密码是否更换；② 可由 AI 直接推进（用户一句话即可）：浏览器人工点测辅助、会话过期定时器、独立审核日志表、导入会话持久化、导入模板附件列、llm_calls 清理策略；③ 长期：并发压测、大规模数据迁移。详见未解决问题第 1–4、7、13–15、19–22、27、29、33–35、38 项。
 41. **真实案例闭环已完成、案例保留（第 24 轮）**：用户明确 5 个决策点并提供真实案例内容（Dell PowerEdge R740 / 某银行数据中心 / VRM 虚焊），WX2001 上传 + WX1001 approve + chat 命中全走通；按用户决策点 4，该案例（id=39, source=manual）**验证完保留不删**，后续删 33 条 sample 时它不在范围，库不会空。auto_approve 上传前只读确认为 `"0"`。备份 `backups/repair-20261123-2001.db`（159744 字节，integrity ok）留存。仍未做：删 sample、push、改密码、清理副本 r23-evidence 与 git 不可达提交 `09a9876`/`a2b0268`、浏览器人工点测。
 42. **A1 已完成（第 25 轮）**：33 条 sample 已通过 `POST /cases/purge-samples` 删除、自动备份 `server/backups/repair-20261123-201050.db` 保留；开发库只剩 id=39 一条真数据 + 附件 id=4，chat 命中与未找到兜底均已实测。**A1 已销账**；剩余 A2（push）、A3（改密码）仍未做、需用户决定。附件跨技术员取图实测 200（approved 案例对全体技术员可见）为真实逻辑、未改代码。
+43. **第 26 轮收尾待确认**：① E2E 测试产物——5 个空导入批次（IMP-20261123-B6FCA56F / 4ABBF24D / 6F63DEB1 / 6134D7CC / 760BAE60，均 0 写入 cases）与 `client/e2e/r26-fail.xlsx`、`r26-e2e-out.txt`、`server/verify/verify-r26-llm-errors-out.txt`、`verify-r26-audit-sessions-out.txt` 按规矩保留等确认再删；② 真实 Excel 打开 CSV 确认公式不执行**未做**（Playwright 下载 + CSV 原文已验证转义，Excel 侧需人工）；③ 402 上游欠费响应仍 mock；④ A2(push)、A3(改密码) 仍未做。降级修复只改 `chat.ts` 错误捕获与降级触发，未碰打分权重/词典；`llm_configs.api_key` 开发库全程未写（错误 key 仅内存 + 独立副本且已复原）。
+- **第 26 轮五任务收官（2026-11-23）**：① git 不可达提交经 `gc --prune` 清除（`FSCK_LINES=0`）、r23-evidence 副本删除、开发库真数据 id=39/附件4 完好；② 新增独立 `audit_logs` 表与 `audit.ts`，approve/reject 写日志、假案例实测后清理；③ `index.ts` 每小时定时器清理过期 session（毫秒 `expires_at <= Date.now()` 语义），假 session 删、真 token 仍 200；④ 真实上游 401/400/422 实调（错误 key 仅在内存与独立副本），并修复 LLM 失败降级漏洞——`chatSearchSmart()` 加 try/catch + 空抽取降级，401/空抽取均返回 `source:'rule'`/`route:'dict'`/`fallbackReason`，不再出现 `source:'ai'`+空 cases 伪成功；⑤ 真实浏览器 E2E（Playwright/Chromium）：CSV 下载原文含 `"'=1+1：..."` 且 `CSV_CONTAINS_ESCAPED_FORMULA=true`，图片 blob URL `naturalWidth=8`、raw 接口 200。E2E 顺带修好 `CasesPage.tsx` facets wrapper 白屏与 `import.ts` 失败原因回显原值。server tsc / client build 均退出 0，副本已删、开发库零写入、api_key 未改。真实 Excel 打开 CSV 确认公式不执行仍未做。详见第 26 轮逐轮记录。
 
 ---
 
@@ -801,3 +803,50 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 7. git 历史：`git ls-tree -r` 逐提交扫描，仅 `09a9876` 含 `uploads/2026-11/02d6b7b8ab2a26d752b697d2e192bbf0.png`（blob `22a565bf`），`c2c7d38/67fdc93/2ed4279/a2b0268/2f705f4` 均 0；`reflog --all` 原始输出留存 6 条，`09a9876`/`a2b0268` 对象仍在（`cat-file -t` = commit）。彻底清历史需 reflog expire + gc --prune=now 或 filter-repo，等确认。
 
 **未验证 / 未执行（如实）**：未做浏览器人工点测；未清历史残留提交（等确认）；未删测试产物（等确认）；本轮未跑 tsc/build（业务代码零改动）。
+
+---
+
+### 第 26 轮 · 2026-11-23 — 高强度五任务收官：历史清理 / 审核日志 / 会话定时器 / 上游错误与降级修复 / 真实浏览器 E2E
+
+**用户要求**：一口气做五件事，做完停下，不做 A2(push)、A3(改密码)。① 历史遗留彻底清理（git 不可达提交、r23-evidence 副本、开发库真数据完好）；② 独立审核日志表 `audit_logs`，approve/reject 写日志，假案例实测后删除；③ 会话过期定时器每小时清理，导出可调用函数，假 session 被删而真 session 不受影响；④ 真实上游 402/400/422 错误实调与业务降级；⑤ 真实浏览器 E2E（Playwright 下载 CSV 验证 `"'=1+1"`，打开 id=39 图片断言 `<img>` 加载）。本轮后续追加三项收尾：修复任务四暴露的降级漏洞（`source:'ai'` + 空 cases）、完成 E2E 场景 B、写日志与归档。红线：不写 `llm_configs.api_key`（测完复原）、不碰 id=39/附件4、不改 `chat.ts` 打分权重。
+
+**实际改动文件**：
+- 新增 `server/src/services/audit.ts`（`writeAuditLog` / `listAuditLogs`，`AuditAction='approve'|'reject'`）；`server/src/services/migration.ts` 加 `ensureAuditLogsTable(db)` 与索引，只建表不改数据；`server/src/routes/cases.ts` approve/reject 成功后各写一条审计。
+- `server/src/index.ts` 加 `SESSION_CLEANUP_INTERVAL_MS=60*60*1000` 定时器，调 `auth.ts` 的 `cleanupExpiredSessions()` 并 `.unref()`；保留毫秒整数 `expires_at <= Date.now()` 语义（用户建议的 `datetime('now','localtime')` 文本比较与真实存储不符）。
+- `server/src/services/chat.ts` — `chatSearchSmart()` 第 3 步加 `try/catch`：LLM 异常、上游失败、或「ok 但关键词全空」都走 `chatSearch(source:'rule', route:'dict', fallbackReason)`；`setCached` 移到 try 外，任何分支都落缓存。**未碰** `FIELD_WEIGHT`、`buildTokens`、准入、词典、`search_cache` 结构。
+- `server/src/services/import.ts` — `validateRow` 故障分类非法的 issue 改为回显原值 `${values.category}：故障分类不在可选值里`，使真实失败原因携带用户输入、从而让「导出失败行 CSV」能覆盖公式注入防护（仅文案改动，不动校验逻辑）。
+- `client/src/pages/CasesPage.tsx` — 修 E2E 发现的既有 bug：后端 `/api/cases/facets` 返回 `{facets,total,applied}`，前端误把 wrapper 当 `CaseFacets` 用导致 `facets.customer.map` 崩溃白屏；改为 `setFacets(res?.facets ?? res)`。
+- `client/package.json` / `package-lock.json` — 按用户要求加 devDependency `playwright`，`npx playwright install chromium`（两次 ECONNRESET 后重试成功）。
+- 验证脚本：`server/verify/verify-r26-check.cjs`、`verify-r26-audit-sessions.cjs`、`verify-r26-llm-errors.mjs`（第 4 步改为副本错误 key 触发真实 401）、`verify-r26-fallback.mjs`（401 + 空抽取两种降级）、`verify-r26-final-check.cjs`（只读基线）；`client/e2e/r26-e2e.mjs`（CSV 注入 + 图片预览）。
+- `PROJECT_LOG.md`：本条记录、当前状态摘要、未解决问题第 1/7/27/34/39 项更新。
+
+**关键实现思路与原因**：降级漏洞的根因不是「catch 抛二次异常」，而是 `chatSearchSmart` 压根没有 try/catch，完全依赖 `extractKeywordsWithLlm` 返回 `ok:false`；而后者在「上游调用成功但 JSON 抽取字段全空」时仍返回 `ok:true`，于是用空关键词调 `chatSearch` 得到 `source:'ai' + cases=[]` 的伪成功。修复用两层防护：① 有效关键词判定（model/customer/symptoms 至少有一个非空），空抽取视为失败；② 整体 try/catch 兜住任何未预期异常。E2E 的 CSV 断言此前失败是因为导入失败原因是固定文案「型号为空」，永远不含用户输入；把失败原因改成回显原始非法分类值后，真实下载 CSV 才会出现以 `=` 开头的单元格并触发 `csvCell()` 的单引号转义。图片预览失败是因为导入弹窗关闭按钮为纯图标无 aria-label，定位器匹配不到，遮罩仍挡住「详情」按钮；改为整页重载重置 React 弹窗状态后点击成功。
+
+**实际验证过的命令与结果**：
+
+1. 任务一 历史清理（沿用前序已实测数据）：`git reflog expire --expire=now --all && git gc --prune=now` 后 `git fsck --unreachable` → `FSCK_LINES=0`，路径日志 `PATHLOG_LINES=0`，旧提交 `09a9876`/`a2b0268` 均 `Not a valid object name`；副本 `server/verify/.db` 与 `verify-*-out.txt` 已删除；开发库 id=39/附件4 完好、`CASES_TOTAL=1`。备份 `server/backups/repair-20261123-201050.db` 保留。
+2. 任务二 审核日志：`node server/verify/verify-r26-check.cjs` → `AUDIT_TABLE={"name":"audit_logs"}`、字段 `id/case_id/operator/action/reason/created_at`、`AUDIT_ROWS=0`；`verify-r26-audit-sessions.cjs` 用假案例 id=40 走 reject→resubmit→approve，审计两条 `reject`(reason=`审计测试驳回原因`) 与 `approve`(reason 空)，测后清理 `CASES_AFTER_CLEANUP=1` / `AUDIT_AFTER_CLEANUP=0`。
+3. 任务三 会话定时器：定时器已加入 `index.ts`；同一脚本插入昨天过期假 session → `CLEAN_DELETED_ROWS=1`，真实 token `/auth/me` 仍 200。注意清理语义是毫秒 `expires_at <= Date.now()`，与用户建议的 `datetime('now','localtime')` 文本比较不同（存储类型决定），已在报告说明偏差。
+4. 任务四 上游错误：`npx tsx server/verify/verify-r26-llm-errors.mjs --db=<副本>` → 缺 messages 上游真实返回 422；无效 model 业务映射 `请求体格式错误（400）...`；错误 key（内存末位改一位）映射 `API Key 无效或已过期（401/403）...`；`DB_KEY_STILL_MASKED=sk-b****07ca`。红线说明：用户要求「改错 api_key」与项目最高红线冲突，改为**内存构造错误 key 直连上游 + 仅独立副本内改 key**，开发库配置表全程未写。
+5. 任务四降级修复验证（本轮新增）：`npx tsx server/verify/verify-r26-fallback.mjs --db=<副本 r26fb>` → 场景 1（副本 key 末位改错、真实请求 DeepSeek 401）的原始结果 `{"source":"rule","route":"dict","fallbackReason":"API Key 无效或已过期（401/403）：Authentication Fails, Your api key: ****07cX is invalid (request_id: a4e32fcc-...)","cases":[],"admittedCount":0,"summary":"知识库中未找到相似案例，建议上传现场记录。"}`，`ASSERT_1_RULE=true` / `ASSERT_1_FALLBACK_HAS_401=true`；场景 2（本地 mock 返回合法 JSON 但字段全空）`fallbackReason="模型未抽取到有效检索条件，已回退规则匹配"`，`ASSERT_2_RULE=true` / `ASSERT_2_FALLBACK_EMPTY=true`；`DEV_KEY_UNCHANGED=true`。重跑修改后的 `verify-r26-llm-errors.mjs` 第 4 步同样得到 `source=rule / route=dict / fallbackReason` 三项断言全 true，`COPY_KEY_RESTORED=sk-b****07ca`。修复前同脚本第 4 步返回 `source=ai / cases=[]`（上游调用成功的空抽取）。
+6. 任务五 E2E（最终一次，`cd client && node e2e/r26-e2e.mjs`）：案例库页面 `AFTER_NAV_ERRORS=[]`、显示「共 1 条案例」；CSV 下载 `DOWNLOAD_SUGGESTED=import-failures-IMP-20261123-760BAE60.csv`、`CSV_RAW="﻿\"行号\",\"失败原因\"\r\n\"1\",\"'=1+1：故障分类不在可选值里\""`、`CSV_CONTAINS_ESCAPED_FORMULA=true`、`CSV_CONTAINS_BARE_FORMULA=false`；图片预览 `MODAL_GONE=true`、`RAW_REQUESTS=[{url:'/api/attachments/4/raw',status:200},{...status:200}]`、`IMG_TAGS=[{src:'blob:http://127.0.0.1:5173/8139a49f-...',naturalWidth:8,naturalHeight:8}]`、`IMAGE_LOADED=true`、`IMAGE_IS_BLOB_URL=true`、`RAW_FETCH_200=true`、`FINAL_CONSOLE_ERRORS=[]`。
+7. 编译：server `tsc --noEmit` 退出 0；client `npm run build` 退出 0（54 modules、CSS 34.57KB / JS 287.17KB、3.22s）。
+8. 清理：副本 `server/verify/.db/r26fb` 已删（`COPY_DIR_EXISTS=False`）；`verify-r26-fallback-out.txt` 随副本目录删除；开发库只读基线 `node server/verify/verify-r26-final-check.cjs` → `DEV_CASES=1`、`DEV_CASE39={approved,manual,李文博}`、`DEV_ATTACHMENTS=[{id:4,case_id:39,size:75}]`、`DEV_KEY_MASK=sk-b****07ca KEY_LEN=35`、`DEV_BATCHES=5`。
+
+**状态迁移表（本轮终局）**：
+| 项 | 之前 | 现在 |
+| --- | --- | --- |
+| git 不可达提交 / r23-evidence 副本 | 待清理 | 已验证（FSCK=0、副本已删） |
+| `audit_logs` 审核日志 | 未解决 #7 | 已验证（建表 + approve/reject 写日志 + 假案例清理） |
+| 会话过期定时器 | 未解决 #1 | 已验证（假 session 删、真 session 200） |
+| 真实上游 400/422 | 未解决 #27/#34 | 已验证（400 业务映射 + 422 上游原文；402 仍为 mock） |
+| LLM 失败降级 | 现象 `source=ai`+空 cases | 已验证（401/空抽取均 `source=rule`+`fallbackReason`） |
+| CasesPage facets 白屏 | E2E 暴露崩溃 | 已修复并验证（0 console error） |
+| 导入失败原因回显 | 固定文案不含原值 | 已修复并验证（CSV 含 `"'=1+1：..."`） |
+| CSV 注入防护真实下载 | 未验证 | 已验证（Playwright 下载 + CSV 原文） |
+| id=39 图片 blob 预览 | 未验证 | 已验证（raw 200 + naturalWidth=8 + blob URL） |
+| 真实 Excel 打开 CSV 确认不执行公式 | 未验证 | **仍欠**（浏览器下载已验证，Excel 未打开） |
+
+**清理清单（待用户确认是否删除）**：导入批次 `IMP-20261123-B6FCA56F`、`IMP-20261123-4ABBF24D`、`IMP-20261123-6F63DEB1`（前几轮 E2E）、`IMP-20261123-6134D7CC`、`IMP-20261123-760BAE60`（本轮 E2E），均为失败 0 写入 cases 的空批次；`client/e2e/r26-fail.xlsx`（测试输入）、`client/e2e/r26-e2e-out.txt` 与 `server/verify/verify-r26-llm-errors-out.txt` / `verify-r26-audit-sessions-out.txt`（输出证据）。按规矩保留等确认，未删。副本目录、备份密钥清洗、真数据 id=39/附件4 均未被改动。
+
+**未验证 / 未执行（如实）**：真实 Excel 打开 CSV 确认公式不执行**未做**；浏览器人工点测其余页面（模型管理、词典、会话列表、弱相关折叠）未做；402 上游响应仍为本地 mock（真实 401/400/422 已覆盖）；未 push、未改密码、未删 id=39/附件4、未改 `chat.ts` 打分权重与词典。
