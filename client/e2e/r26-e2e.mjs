@@ -27,7 +27,7 @@ try {
   put('===== 登录 =====');
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
   await page.getByPlaceholder('例如 WX1001').fill('WX1001');
-  await page.getByPlaceholder('请输入密码').fill('Test@1234');
+  await page.getByPlaceholder('请输入密码').fill('Repair@2026');
   await page.getByRole('button', { name: '登录' }).click();
   await page.waitForTimeout(1500);
   put(`LOGIN_URL=${page.url()}`);

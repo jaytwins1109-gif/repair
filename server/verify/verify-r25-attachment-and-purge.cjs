@@ -15,10 +15,10 @@ const J = (v) => JSON.stringify(v);
 async function login(emp_no) {
   const r = await fetch(BASE + '/auth/login', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ emp_no, password: 'Test@1234' }),
+    body: JSON.stringify({ emp_no, password: 'Repair@2026' }),
   });
   const b = await r.json();
-  put(`LOGIN_REQUEST=POST ${BASE}/auth/login ${J({ emp_no, password: 'Test@1234' })}`);
+  put(`LOGIN_REQUEST=POST ${BASE}/auth/login ${J({ emp_no, password: 'Repair@2026' })}`);
   put(`LOGIN_RESPONSE_STATUS=${r.status}`);
   put(`LOGIN_RESPONSE_BODY=${J(b)}`);
   if (!b || b.code !== 0 || !b.data || !b.data.token) throw new Error(`${emp_no} 登录失败，停止`);

@@ -132,7 +132,7 @@ export function LoginPage() {
           </form>
 
           <div className="mt-8 border-t border-line pt-5 text-[11.5px] leading-[1.9] text-muted">
-            演示账号（初始密码统一 <b className="font-mono text-ink">Test@1234</b>）
+            演示账号（初始密码统一 <b className="font-mono text-ink">Repair@2026</b>）
             <br />
             <span className="font-mono text-[#5E6670]">WX1001</span> 陈立群 · 工程师
             <span className="mx-2 text-[#C8C2B7]">/</span>

@@ -73,7 +73,7 @@ async function main() {
   put(`PNG_BYTES=${png.length}`);
 
   put('===== 1. WX2001 登录 =====');
-  const loginA = await jsonCall('/auth/login', null, 'POST', { emp_no: 'WX2001', password: 'Test@1234' });
+  const loginA = await jsonCall('/auth/login', null, 'POST', { emp_no: 'WX2001', password: 'Repair@2026' });
   const tokenA = loginA.body && loginA.body.data && loginA.body.data.token;
   if (!tokenA) throw new Error('WX2001 登录未拿到 token，停止');
   put(`TOKEN_A_PREFIX=${tokenA.slice(0, 12)}...`);
@@ -116,7 +116,7 @@ async function main() {
   db.close();
 
   put('===== 3. WX1001 工程师登录 + approve =====');
-  const loginE = await jsonCall('/auth/login', null, 'POST', { emp_no: 'WX1001', password: 'Test@1234' });
+  const loginE = await jsonCall('/auth/login', null, 'POST', { emp_no: 'WX1001', password: 'Repair@2026' });
   const tokenE = loginE.body && loginE.body.data && loginE.body.data.token;
   if (!tokenE) throw new Error('WX1001 登录未拿到 token，停止');
   await jsonCall(`/cases/${caseId}/approve`, tokenE, 'POST');

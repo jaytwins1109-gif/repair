@@ -13,7 +13,7 @@ const put = (s) => { lines.push(s); console.log(s); };
 const J = (v) => JSON.stringify(v);
 
 async function login(emp_no) {
-  const r = await fetch(BASE + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: J({ emp_no, password: 'Test@1234' }) });
+  const r = await fetch(BASE + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: J({ emp_no, password: 'Repair@2026' }) });
   const b = await r.json();
   put(`LOGIN ${emp_no} status=${r.status} body=${J(b)}`);
   if (b.code !== 0) throw new Error(emp_no + ' 登录失败');

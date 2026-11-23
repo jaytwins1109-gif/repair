@@ -170,6 +170,12 @@ export const api = {
   me() {
     return request<AuthUser>('/auth/me');
   },
+  changeInitialPassword(newPassword: string) {
+    return request<{ updated: number; empNos: string[] }>('/auth/change-initial-password', {
+      method: 'POST',
+      body: JSON.stringify({ newPassword }),
+    });
+  },
 
   listModels(q = '') {
     return request<Model[]>(`/models${toQuery({ q })}`);

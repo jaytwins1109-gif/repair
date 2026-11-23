@@ -230,12 +230,18 @@ const SEED_USERS: [string, string, UserRole, string][] = [
   ['WX2008', '徐若涵', 'technician', '主板维修技术员'],
 ];
 
+/** 新库首次建库时写入的种子账号初始密码（第 28 轮；老库改密走带鉴权的 change-initial-password 接口） */
+export const SEED_INITIAL_PASSWORD = 'Repair@2026';
+
+/** 种子账号工号列表：批量改初始密码时只更新这些账号，不碰后来新增的非种子账号 */
+export const SEED_EMP_NOS: string[] = SEED_USERS.map(([empNo]) => empNo);
+
 function seedUsers() {
   const exists = db.prepare('SELECT 1 FROM users WHERE emp_no = ?');
   const insert = db.prepare(
     'INSERT INTO users (emp_no, name, role, position, password_hash) VALUES (?, ?, ?, ?, ?)'
   );
-  const passwordHash = bcrypt.hashSync('Test@1234', 10);
+  const passwordHash = bcrypt.hashSync(SEED_INITIAL_PASSWORD, 10);
   db.transaction(() => {
     for (const [empNo, name, role, position] of SEED_USERS) {
       if (exists.get(empNo)) continue;

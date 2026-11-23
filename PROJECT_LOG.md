@@ -98,7 +98,7 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 1. 已解决（第 26 轮）：后端启动时批量清理 + 请求惰性删除之外，`index.ts` 增加每小时定时器调用 `cleanupExpiredSessions()`；实测过期假 session 被删、真 token `/auth/me` 仍 200。采用毫秒整数 `expires_at <= Date.now()` 语义（用户曾建议 `datetime('now','localtime')` 文本比较，与真实存储类型不符未采用）。
 2. 同一账号允许多处登录、多 token 并存，没有互斥登录或强制下线机制。
 3. token 存于前端 `localStorage`，有 SPA 固有 XSS 风险；无刷新续期，12 小时到期后需重新登录。
-4. 无密码修改 / 找回功能；初始密码 `Test@1234` 是否在正式交付前更换，需人工确认。
+4. 已解决（第 28 轮）：初始密码统一改为 `Repair@2026`（`db/index.ts` 的 `SEED_INITIAL_PASSWORD` 常量 + 工程师专属 `POST /api/auth/change-initial-password` 批量改 10 个种子账号，实测旧密码失效/新密码生效、token 不失效、技术员 403）。无自助找回功能（需工程师统一改），已够交付使用。
 5. 已解决：附件真实上传与鉴权看图已在第 6 轮完成。
 6. 已解决（第 7 轮接 LLM，第 9 轮落语义）：对话检索已接 OpenAI 兼容 LLM 做条件抽取 + 规则兜底，第 9 轮新增现象/机型词典把同义说法归一化并扩展匹配，打分改成词元覆盖率×字段权重，卡片带命中说明与来源标识。仍未用向量库/嵌入，卡片“相似度”是加权覆盖率不是语义向量相似度；LLM 只抽取检索条件与扩展词、不生成结论，案例只来自数据库命中。真实外网调用需工程师填有效密钥后人工验证（本轮仍无真实密钥，未做外网实调）。
 7. 已解决（第 26 轮）：新增独立 `audit_logs` 表（case_id/operator/action/reason/created_at + case_id 索引），approve/reject 成功后各写一条；假案例 id=40 实测 reject→resubmit→approve 两条日志，测后清理恢复 `CASES=1 / AUDIT=0`。原案例行三字段保留不变。
@@ -705,6 +705,7 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 43. **第 27 轮更新（#43 销账 + 新待确认）**：① **已解决**——5 个空批次已精确 DELETE（`DELETED_ROWS=5`、批次表清空）、E2E 产物已加 `.gitignore` + 取消 git 跟踪（工作区文件保留）；② 真实 Excel 打开 CSV 确认公式不执行**仍未做**（需人工）；③ 402 上游欠费仍 mock；④ **A2(push)、A3(改密码) 方案已给出、仍未执行**，等用户拍板：push 无远程、确认 101 个跟踪文件无敏感文件；改密码硬编码在 `db/index.ts:220-231`（账号）与第 238 行（密码），改常量只对新库首次建库生效，老库需一次性带鉴权改密接口另议；⑤ 新增待确认——Excel 导出成功 toast（3 秒）方案已给出未落地。降级修复只改 `chat.ts` 错误捕获与降级触发，未碰打分权重/词典；`llm_configs.api_key` 开发库全程未写。
 - **第 26 轮五任务收官（2026-11-23）**：① git 不可达提交经 `gc --prune` 清除（`FSCK_LINES=0`）、r23-evidence 副本删除、开发库真数据 id=39/附件4 完好；② 新增独立 `audit_logs` 表与 `audit.ts`，approve/reject 写日志、假案例实测后清理；③ `index.ts` 每小时定时器清理过期 session（毫秒 `expires_at <= Date.now()` 语义），假 session 删、真 token 仍 200；④ 真实上游 401/400/422 实调（错误 key 仅在内存与独立副本），并修复 LLM 失败降级漏洞——`chatSearchSmart()` 加 try/catch + 空抽取降级，401/空抽取均返回 `source:'rule'`/`route:'dict'`/`fallbackReason`，不再出现 `source:'ai'`+空 cases 伪成功；⑤ 真实浏览器 E2E（Playwright/Chromium）：CSV 下载原文含 `"'=1+1：..."` 且 `CSV_CONTAINS_ESCAPED_FORMULA=true`，图片 blob URL `naturalWidth=8`、raw 接口 200。E2E 顺带修好 `CasesPage.tsx` facets wrapper 白屏与 `import.ts` 失败原因回显原值。server tsc / client build 均退出 0，副本已删、开发库零写入、api_key 未改。真实 Excel 打开 CSV 确认公式不执行仍未做。详见第 26 轮逐轮记录。
 - **第 27 轮清理现场 + 决策准备（2026-11-23）**：精确 DELETE 5 个空导入批次（`DELETED_ROWS=5`、`REMAINING_BATCHES=[]`、`cases=1`/`附件=1` 不变）；`.gitignore` 新增三条 E2E 产物忽略规则并 `git rm --cached` 取消跟踪 `r26-fail.xlsx`/`r26-e2e-out.txt`（工作区文件保留）。任务二 A2(push)/A3(改密码)/Excel toast 只出方案**未执行**：push 已确认 101 个跟踪文件无 `.db`/`.png`/`.env`（Top1 `PROJECT_LOG.md` 180.4KB）、无远程未 push；10 个账号硬编码在 `db/index.ts:220-231`、初始密码在同文件第 238 行 `bcrypt.hashSync('Test@1234',10)`（不在 `seedData.ts`），改该常量只对新库首次建库生效；toast 组件默认 2800ms≈3 秒可直接复用。详见第 27 轮逐轮记录。
+- **第 28 轮交付：改密 + Toast + Push 安全检查（2026-11-23）**：**初始密码已统一改为 `Repair@2026`**——新库由 `db/index.ts` 导出的 `SEED_INITIAL_PASSWORD` 常量控制，老库通过工程师专属 `POST /api/auth/change-initial-password` 批量改 10 个种子账号（`updated=10`），实测旧密码全失败、10 个账号新密码全登录成功、已登录 token 不失效、技术员 403、短密码被拒；设置页新增工程师可见的密码输入框（二次确认），登录页与历史验证脚本的密码提示/硬编码同步更新。`ImportModal.tsx` 导出失败行 CSV 后新增 3 秒 Toast 防呆提示。Push 前安全检查：`.env` 与 `server/data/` 均在 `.gitignore`，已跟踪文件零敏感命中、无远程未 push（用户自配 SSH Key 推 Private 仓库）。真实 Excel 打开 CSV 验证为**已交付人工验收项**。详见第 28 轮逐轮记录。
 
 ---
 
@@ -871,3 +872,28 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **任务二方案（未执行，等确认）**：push 完整命令流、改密码最小改动方案、Excel 前导单引号原理与 toast 方案，见下方交付报告「任务二方案」三节。
 
 **未验证 / 未执行（如实）**：任务二三项（push / 改密码 / toast UI 改动）**全部未执行**，仅出方案；本轮未跑编译（任务一零业务代码改动，仅 `.gitignore` 与索引变更）；真实 Excel 打开 CSV 确认公式不执行仍未做；浏览器人工点测、402 上游欠费仍欠。
+
+---
+
+### 第 28 轮 · 2026-11-23 — 交付阶段：落地改密接口 + Toast + Push 前安全检查
+
+**用户要求**：选 A 方案统一新密码 `Repair@2026`——① 新增带 `requireRole('engineer')` 的 `POST /api/auth/change-initial-password`，接收 `{newPassword}` 只批量更新 10 个种子账号（用真实字段 `password_hash`），设置页加输入框；把 `db/index.ts` 第 238 行硬编码改为 `const SEED_INITIAL_PASSWORD = 'Repair@2026'` 保证新库也用新密码；实测把开发库 10 个账号从 `Test@1234` 改为 `Repair@2026` 并验证旧失效/新生效。② `ImportModal.tsx` 的 `exportFailures()` 末尾加 3 秒 Toast「导出成功，失败行已保存为 CSV（公式内容已加单引号防护）」，不跑 E2E 只 build。③ A2 push 用户自己配 SSH Key 推 Private 仓库、不要 AI 执行；只检查 `.env` 与 `server/data/` 在 `.gitignore`、工作区无未提交敏感文件；最后跑 `tsc --noEmit` + `npm run build` + `git commit`。④ 真实 Excel 打开 CSV 由用户人工验收，报告标注「已交付人工验收项」。
+
+**实际改动文件**：
+- `server/src/db/index.ts` — 导出 `SEED_INITIAL_PASSWORD='Repair@2026'` 与 `SEED_EMP_NOS`（由 `SEED_USERS` 派生），`seedUsers()` 改用常量 hash（新库首次建库生效）。
+- `server/src/routes/auth.ts` — 新增 `POST /auth/change-initial-password`（`requireRole('engineer')`、8-64 位校验、bcrypt hash、`UPDATE users SET password_hash WHERE emp_no IN (10个占位符)`、返回 updated/empNos）；只改种子工号、不删 sessions、不碰非种子账号。
+- `client/src/api/index.ts` — 新增 `api.changeInitialPassword`；`client/src/pages/SettingsPage.tsx` — 新增工程师专属「种子账号初始密码」区块（密码框 + 二次确认 + doChangePassword），接口清单加一行。
+- `client/src/components/ImportModal.tsx` — `exportFailures()` 末尾加 `toast('导出成功，失败行已保存为 CSV（公式内容已加单引号防护）','success')`（复用 `useToast` 的 2800ms≈3 秒）。
+- 同步更新活脚本/页面的旧密码硬编码：`client/src/pages/LoginPage.tsx` 登录页提示、`client/e2e/r26-e2e.mjs`、`verify-r24-real-closure.cjs`、`verify-r25-attachment-and-purge.cjs`、`verify-r26-audit-sessions.cjs` 均改 `Repair@2026`。
+- 新增 `server/verify/verify-r28-password.cjs`（实测脚本，走 HTTP 鉴权接口，不直连库写）；`PROJECT_LOG.md` 本条与摘要/清单更新。**未 push、未改 git config**。
+
+**实际验证过的命令与结果**：
+
+1. 编译（改代码后）：server `tsc --noEmit` → `SERVER_TSC_EXIT=0`；client `npm run build` → `CLIENT_BUILD_EXIT=0`（54 modules、CSS 34.59KB / JS 289.18KB、3.38s）。
+2. 改密实测：`node server/verify/verify-r28-password.cjs` → 工程师旧密码登录 `ENGINEER_LOGIN_BEFORE={"status":200,"code":0,"user":{WX1001,陈立群,engineer}}`；改密 `CHANGE_RESULT={"status":200,"code":0,"data":{"updated":10,"empNos":["WX1001","WX1002","WX2001"..."WX2008"]},"message":"已将 10 个种子账号的密码改为新密码"}`；旧密码登录 WX1001/WX2001/WX2008 均 `code=1 message="工号或密码不正确"`；新密码登录 10 个账号全部 `code=0 message="登录成功" hasToken=true`（姓名角色逐一正确：WX1001 陈立群/WX1002 韩志远工程师，WX2001–2008 技术员）；改密前拿到的旧 token `GET /auth/me` 仍 `code=0`（会话未失效）；技术员调改密 `status=403 code=403`；短密码 `code=1 "新密码长度须为 8-64 位"`。`PASSWORD_TEST_EXIT=0`。
+3. Push 前安全检查：`Test-Path .env` → False（本地无 .env），`git check-ignore -v` → `.env` 命中 `.gitignore:33`、`.db/.db-wal` 命中 `server/data/` 第 8 行、`server/backups/x.db` 命中第 21 行 `backups/`、`server/uploads/x.png` 命中第 17 行 `uploads/`、`r26-fail.xlsx` 命中第 28 行；`git ls-files` 扫 `.env/.db/.db-wal/.db-shm/.png/.jpg/.jpeg/.webp/.key/.pem/.xlsx` → **零命中**；`git remote -v` 空、未 push。
+4. 最终编译与归档（见下条提交记录）。
+
+**待人工验收项**：真实用 Excel 打开下载的 CSV、确认 `=1+1` 单元格显示为文本而非被公式求值——用户明确自行在本地下载后验证，本项标注**“已交付人工验收项”**，AI 未执行。
+
+**未验证 / 未执行（如实）**：未 push（用户自己配 SSH Key 推 Private 仓库）；未跑 E2E（用户要求只 build）；未新建/修改 git config；`chat.ts` 打分权重/词典、`llm_configs.api_key` 全部未碰；真实 Excel 打开验证为用户人工验收项。

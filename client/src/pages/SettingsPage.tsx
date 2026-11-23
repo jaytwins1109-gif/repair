@@ -10,6 +10,7 @@ const ENDPOINTS = [
   ['POST', '/api/auth/login', '工号密码登录'],
   ['POST', '/api/auth/logout', '退出登录'],
   ['GET', '/api/auth/me', '恢复当前登录态'],
+  ['POST', '/api/auth/change-initial-password', '批量修改 10 个种子账号初始密码（仅工程师）'],
   ['GET', '/api/models?q=', '机型列表'],
   ['POST', '/api/models', '新增机型'],
   ['GET', '/api/customers?q=', '客户列表'],
@@ -39,6 +40,7 @@ export function SettingsPage() {
   const [health, setHealth] = useState<string>('检测中…');
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
 
   useEffect(() => {
     fetch('/api/health')
@@ -69,6 +71,20 @@ export function SettingsPage() {
       toast('匹配阈值已保存');
     } catch (e: any) {
       toast(e.message || '保存失败', 'error');
+    }
+  };
+
+  const doChangePassword = async () => {
+    if (newPassword.length < 8 || newPassword.length > 64) {
+      return toast('新密码须为 8-64 位', 'error');
+    }
+    if (!window.confirm('二次确认：将把 10 个种子账号的登录密码统一改为所填新密码，其他账号不受影响，已登录会话不会失效。确定继续？')) return;
+    try {
+      const r = await api.changeInitialPassword(newPassword);
+      toast(`已更新 ${r.updated} 个种子账号密码，后续登录请用新密码`);
+      setNewPassword('');
+    } catch (e: any) {
+      toast(e.message || '修改失败', 'error');
     }
   };
 
@@ -167,6 +183,37 @@ export function SettingsPage() {
             </div>
           </div>
         </Section>
+
+        {isAdmin && (
+          <Section title="种子账号初始密码" hint="仅工程师可见；统一修改 10 个种子工号的登录密码">
+            <div className="rounded-xl border border-line bg-surface p-5">
+              <label className="flex flex-wrap items-center gap-3">
+                <span className="text-[13px] text-ink">新密码（8-64 位）：</span>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  disabled={saving}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="例如 Repair@2026"
+                  className="w-64 rounded-lg border border-line bg-white px-3 py-2 font-mono text-[13px] text-ink"
+                />
+                <button
+                  type="button"
+                  onClick={() => void doChangePassword()}
+                  disabled={saving || !newPassword}
+                  className="rounded-lg bg-accent px-4 py-2 text-[12px] text-white disabled:opacity-50"
+                >
+                  批量修改种子账号密码
+                </button>
+              </label>
+              <p className="mb-0 mt-3 text-[11px] leading-[1.7] text-muted">
+                只更新 10 个种子工号（WX1001/WX1002、WX2001–WX2008），不影响后续新增账号；已登录会话不失效。
+                新库首次建库的初始密码由源码常量 <code>SEED_INITIAL_PASSWORD</code> 决定，与本处保持一致。改完请通知所有使用者用新密码登录。
+              </p>
+            </div>
+          </Section>
+        )}
 
         <Section title="检索排序截断阈值" hint="只用于排序截断，不是匹配门槛，仅工程师可改">
           <div className="rounded-xl border border-line bg-surface p-5">

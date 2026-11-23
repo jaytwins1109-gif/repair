@@ -142,6 +142,7 @@ export function ImportModal({
     a.download = `import-failures-${report.batchNo}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    toast('导出成功，失败行已保存为 CSV（公式内容已加单引号防护）', 'success');
   };
 
   if (!open) return null;
