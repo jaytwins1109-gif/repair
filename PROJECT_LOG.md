@@ -702,8 +702,9 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **遗留问题 / 需人工确认**：下一步计划分三类——① 需用户点头才能做：删除 33 条示例案例、配置远程并 push、真实上游错误码实调是否投入 token、初始密码是否更换；② 可由 AI 直接推进（用户一句话即可）：浏览器人工点测辅助、会话过期定时器、独立审核日志表、导入会话持久化、导入模板附件列、llm_calls 清理策略；③ 长期：并发压测、大规模数据迁移。详见未解决问题第 1–4、7、13–15、19–22、27、29、33–35、38 项。
 41. **真实案例闭环已完成、案例保留（第 24 轮）**：用户明确 5 个决策点并提供真实案例内容（Dell PowerEdge R740 / 某银行数据中心 / VRM 虚焊），WX2001 上传 + WX1001 approve + chat 命中全走通；按用户决策点 4，该案例（id=39, source=manual）**验证完保留不删**，后续删 33 条 sample 时它不在范围，库不会空。auto_approve 上传前只读确认为 `"0"`。备份 `backups/repair-20261123-2001.db`（159744 字节，integrity ok）留存。仍未做：删 sample、push、改密码、清理副本 r23-evidence 与 git 不可达提交 `09a9876`/`a2b0268`、浏览器人工点测。
 42. **A1 已完成（第 25 轮）**：33 条 sample 已通过 `POST /cases/purge-samples` 删除、自动备份 `server/backups/repair-20261123-201050.db` 保留；开发库只剩 id=39 一条真数据 + 附件 id=4，chat 命中与未找到兜底均已实测。**A1 已销账**；剩余 A2（push）、A3（改密码）仍未做、需用户决定。附件跨技术员取图实测 200（approved 案例对全体技术员可见）为真实逻辑、未改代码。
-43. **第 26 轮收尾待确认**：① E2E 测试产物——5 个空导入批次（IMP-20261123-B6FCA56F / 4ABBF24D / 6F63DEB1 / 6134D7CC / 760BAE60，均 0 写入 cases）与 `client/e2e/r26-fail.xlsx`、`r26-e2e-out.txt`、`server/verify/verify-r26-llm-errors-out.txt`、`verify-r26-audit-sessions-out.txt` 按规矩保留等确认再删；② 真实 Excel 打开 CSV 确认公式不执行**未做**（Playwright 下载 + CSV 原文已验证转义，Excel 侧需人工）；③ 402 上游欠费响应仍 mock；④ A2(push)、A3(改密码) 仍未做。降级修复只改 `chat.ts` 错误捕获与降级触发，未碰打分权重/词典；`llm_configs.api_key` 开发库全程未写（错误 key 仅内存 + 独立副本且已复原）。
+43. **第 27 轮更新（#43 销账 + 新待确认）**：① **已解决**——5 个空批次已精确 DELETE（`DELETED_ROWS=5`、批次表清空）、E2E 产物已加 `.gitignore` + 取消 git 跟踪（工作区文件保留）；② 真实 Excel 打开 CSV 确认公式不执行**仍未做**（需人工）；③ 402 上游欠费仍 mock；④ **A2(push)、A3(改密码) 方案已给出、仍未执行**，等用户拍板：push 无远程、确认 101 个跟踪文件无敏感文件；改密码硬编码在 `db/index.ts:220-231`（账号）与第 238 行（密码），改常量只对新库首次建库生效，老库需一次性带鉴权改密接口另议；⑤ 新增待确认——Excel 导出成功 toast（3 秒）方案已给出未落地。降级修复只改 `chat.ts` 错误捕获与降级触发，未碰打分权重/词典；`llm_configs.api_key` 开发库全程未写。
 - **第 26 轮五任务收官（2026-11-23）**：① git 不可达提交经 `gc --prune` 清除（`FSCK_LINES=0`）、r23-evidence 副本删除、开发库真数据 id=39/附件4 完好；② 新增独立 `audit_logs` 表与 `audit.ts`，approve/reject 写日志、假案例实测后清理；③ `index.ts` 每小时定时器清理过期 session（毫秒 `expires_at <= Date.now()` 语义），假 session 删、真 token 仍 200；④ 真实上游 401/400/422 实调（错误 key 仅在内存与独立副本），并修复 LLM 失败降级漏洞——`chatSearchSmart()` 加 try/catch + 空抽取降级，401/空抽取均返回 `source:'rule'`/`route:'dict'`/`fallbackReason`，不再出现 `source:'ai'`+空 cases 伪成功；⑤ 真实浏览器 E2E（Playwright/Chromium）：CSV 下载原文含 `"'=1+1：..."` 且 `CSV_CONTAINS_ESCAPED_FORMULA=true`，图片 blob URL `naturalWidth=8`、raw 接口 200。E2E 顺带修好 `CasesPage.tsx` facets wrapper 白屏与 `import.ts` 失败原因回显原值。server tsc / client build 均退出 0，副本已删、开发库零写入、api_key 未改。真实 Excel 打开 CSV 确认公式不执行仍未做。详见第 26 轮逐轮记录。
+- **第 27 轮清理现场 + 决策准备（2026-11-23）**：精确 DELETE 5 个空导入批次（`DELETED_ROWS=5`、`REMAINING_BATCHES=[]`、`cases=1`/`附件=1` 不变）；`.gitignore` 新增三条 E2E 产物忽略规则并 `git rm --cached` 取消跟踪 `r26-fail.xlsx`/`r26-e2e-out.txt`（工作区文件保留）。任务二 A2(push)/A3(改密码)/Excel toast 只出方案**未执行**：push 已确认 101 个跟踪文件无 `.db`/`.png`/`.env`（Top1 `PROJECT_LOG.md` 180.4KB）、无远程未 push；10 个账号硬编码在 `db/index.ts:220-231`、初始密码在同文件第 238 行 `bcrypt.hashSync('Test@1234',10)`（不在 `seedData.ts`），改该常量只对新库首次建库生效；toast 组件默认 2800ms≈3 秒可直接复用。详见第 27 轮逐轮记录。
 
 ---
 
@@ -847,6 +848,26 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 | id=39 图片 blob 预览 | 未验证 | 已验证（raw 200 + naturalWidth=8 + blob URL） |
 | 真实 Excel 打开 CSV 确认不执行公式 | 未验证 | **仍欠**（浏览器下载已验证，Excel 未打开） |
 
-**清理清单（待用户确认是否删除）**：导入批次 `IMP-20261123-B6FCA56F`、`IMP-20261123-4ABBF24D`、`IMP-20261123-6F63DEB1`（前几轮 E2E）、`IMP-20261123-6134D7CC`、`IMP-20261123-760BAE60`（本轮 E2E），均为失败 0 写入 cases 的空批次；`client/e2e/r26-fail.xlsx`（测试输入）、`client/e2e/r26-e2e-out.txt` 与 `server/verify/verify-r26-llm-errors-out.txt` / `verify-r26-audit-sessions-out.txt`（输出证据）。按规矩保留等确认，未删。副本目录、备份密钥清洗、真数据 id=39/附件4 均未被改动。
+**清理清单**：导入批次 `IMP-20261123-B6FCA56F`、`IMP-20261123-4ABBF24D`、`IMP-20261123-6F63DEB1`（前几轮 E2E）、`IMP-20261123-6134D7CC`、`IMP-20261123-760BAE60`（本轮 E2E），均为失败 0 写入 cases 的空批次；`client/e2e/r26-fail.xlsx`（测试输入）、`client/e2e/r26-e2e-out.txt` 与 `server/verify/verify-r26-llm-errors-out.txt` / `verify-r26-audit-sessions-out.txt`（输出证据）。第 27 轮已按用户确认删除 5 个空批次、并把 E2E 产物加入 `.gitignore` + 取消 git 跟踪（见第 27 轮记录），工作区文件保留。副本目录、备份密钥清洗、真数据 id=39/附件4 均未被改动。
 
 **未验证 / 未执行（如实）**：真实 Excel 打开 CSV 确认公式不执行**未做**；浏览器人工点测其余页面（模型管理、词典、会话列表、弱相关折叠）未做；402 上游响应仍为本地 mock（真实 401/400/422 已覆盖）；未 push、未改密码、未删 id=39/附件4、未改 `chat.ts` 打分权重与词典。
+
+---
+
+### 第 27 轮 · 2026-11-23 — 清理第 26 轮现场 + A2/A3/Excel 决策准备（只出方案不执行）
+
+**用户要求**：任务一清理第 26 轮现场——① 精确 DELETE 5 个空导入批次（仅 DELETE、不动其它批次）；② 把 `client/e2e/r26-fail.xlsx` 等临时测试文件加 `.gitignore` 或隔离，保证工作区干净；③ 清理后只读复核开发库基线（cases=1、附件=1）。任务二只出方案不执行——① push：列仓库文件体积 Top 5、确认无 `.db`/`.png`、给完整命令流；② 改密码：定位 10 个种子账号硬编码位置、给「统一改初始密码且重建库也生效」的最小方案；③ Excel 验证：说明前导单引号防注入原理、给 UI 加 3 秒防呆 toast 方案。红线：任务二不执行；不 push、不改密码。
+
+**实际改动文件**：`.gitignore`（新增 `client/e2e/*.xlsx`、`client/e2e/*-out.txt`、`client/e2e/.tmp/` 三条忽略规则）；git 索引移除两个已入库的临时产物（`client/e2e/r26-e2e-out.txt`、`r26-fail.xlsx`，工作区文件保留）；开发库 `import_batches` 精确删除 5 行（仅数据 DELETE，无业务代码改动）。一次性清理脚本 `server/verify/cleanup-r27-batches.cjs` 用完即删，只留 `cleanup-r27-batches-out.txt` 作证据（被 `.gitignore` 忽略）。任务二零代码改动。
+
+**实际验证过的命令与结果**：
+
+1. 批次清理：`node server/verify/cleanup-r27-batches.cjs` → `BASELINE_BEFORE={"cases":1,"attachments":1,"batches":5}`；`TARGET_ROWS` 5 行均 `success=0`（id 2/3 失败0、id 4/5/6 失败1）；`CASES_REFERENCING_TARGETS=0`；`DELETED_ROWS=5`；`BASELINE_AFTER={"cases":1,"attachments":1,"batches":0}`；`CASES_UNCHANGED=true` / `ATTACHMENTS_UNCHANGED=true`；`REMAINING_BATCHES=[]`；`CLEANUP_OK=true`。只 DELETE 这 5 个 batch_no，无其它批次被误删。
+2. 文件隔离：`git rm --cached client/e2e/r26-e2e-out.txt client/e2e/r26-fail.xlsx` → 索引移除、工作区文件仍在（Get-Item 确认 4167 / 16365 字节）；`git check-ignore -v` → 分别命中 `.gitignore:28:client/e2e/*.xlsx` 与 `.gitignore:29:client/e2e/*-out.txt`。清理后 `client/e2e/` 保留 3 个文件（e2e 脚本 + 两个被忽略的产物），`server/verify/` 的 `*-out.txt` 证据文件均被忽略。
+3. 基线复核：`node server/verify/verify-r26-final-check.cjs` → `DEV_CASES=1`、`DEV_CASE39={id:39,approved,manual,李文博}`、`DEV_ATTACHMENTS=[{id:4,case_id:39,size:75}]`、`DEV_KEY_MASK=sk-b****07ca KEY_LEN=35`、`DEV_BATCHES=0`。cases/附件真数据未被误删、api_key 未动。
+4. push 信息（只读）：`git ls-files` 按体积 Top 5 = `PROJECT_LOG.md` 180.4KB / `index.html` 67.5KB / `client/package-lock.json` 66.9KB / `server/package-lock.json` 50KB / `server/src/routes/cases.ts` 25.8KB；扫描被跟踪的 `.db/.db-wal/.db-shm/.png/.jpg/.jpeg/.webp/.key/.pem/.env` → **零命中**；跟踪文件总数 101；`git remote -v` 空（无远程、未 push）。
+5. 改密码信息（只读）：10 个种子账号身份硬编码在 `server/src/db/index.ts:220-231` 的 `SEED_USERS` 数组；初始密码硬编码在同文件第 238 行 `bcrypt.hashSync('Test@1234', 10)`；`seedData.ts` 只有案例/词典种子，无账号密码。`seedUsers()` 用 `if (exists.get(empNo)) continue` 幂等，且 `db/index.ts` 用 `app_meta` 标记控制播种只首次执行——改第 238 行常量只在**新库首次建库**时生效，老库已有账号不会被覆盖。
+
+**任务二方案（未执行，等确认）**：push 完整命令流、改密码最小改动方案、Excel 前导单引号原理与 toast 方案，见下方交付报告「任务二方案」三节。
+
+**未验证 / 未执行（如实）**：任务二三项（push / 改密码 / toast UI 改动）**全部未执行**，仅出方案；本轮未跑编译（任务一零业务代码改动，仅 `.gitignore` 与索引变更）；真实 Excel 打开 CSV 确认公式不执行仍未做；浏览器人工点测、402 上游欠费仍欠。
