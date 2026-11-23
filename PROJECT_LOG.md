@@ -897,3 +897,15 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **待人工验收项**：真实用 Excel 打开下载的 CSV、确认 `=1+1` 单元格显示为文本而非被公式求值——用户明确自行在本地下载后验证，本项标注**“已交付人工验收项”**，AI 未执行。
 
 **未验证 / 未执行（如实）**：未 push（用户自己配 SSH Key 推 Private 仓库）；未跑 E2E（用户要求只 build）；未新建/修改 git config；`chat.ts` 打分权重/词典、`llm_configs.api_key` 全部未碰；真实 Excel 打开验证为用户人工验收项。
+
+---
+
+### 第 29 轮 · 2026-11-23 — 创建 README.md
+
+**用户要求**：问「readme 在哪」，得知仓库无 README 后明确要求创建。
+
+**实际改动文件**：新增根目录 `README.md`（面向使用者与交接，基于实际代码事实编写）。
+
+**内容**：技术栈与快速开始（`npm run setup` / `npm run dev`、端口 3001/5173、首次启动自动建库迁移播种备份）；登录与角色（初始密码 `Repair@2026`、10 个种子账号表、工程师改密入口与机制）；主要功能模块表与检索准确性原则、附件安全取图方式；数据与目录（数据库/备份/上传路径、核心表、配置数据红线）；验证与测试（verify 脚本必须走独立副本守卫、Playwright E2E）；部署到 Private 仓库的 git 命令与敏感文件清单；人工验收项（Excel 打开 CSV）；交接说明（规则与历史见 CODEBUDDY.md/PROJECT_LOG.md、API Key 换机需重填）。**未改任何业务代码、未 push。**
+
+**实际验证过的命令与结果**：创建后 `git status --short --untracked-files=all` → 仅 `?? README.md`，无其它改动。内容依据：实际读取 `package.json`（根/server/client）、`server/src/index.ts`、`client/vite.config.ts`、`db/index.ts:220-237`（账号与密码常量）、`client/src/pages/` 目录清单、`ModelsAdminPage.tsx`（密钥脱敏与备份清空说明）、`.gitignore`。未跑编译（纯文档改动）。
