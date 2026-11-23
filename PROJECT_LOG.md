@@ -62,6 +62,7 @@
 - **项目总结与下一步计划梳理（第 21 轮）**：用户要求「总结一下这个项目做了什么，以及你的下一步计划」并让「继续总结」。本轮零代码改动，只读复核日志摘要、第 19/20 轮记录与 `CODEBUDDY.md` 第 16 条，并实测 git：`c2c7d38`（首次归档）+ `67fdc93`（第 20 轮日志归档）共 **2 个提交**、工作区干净（`## master` 无变更）、无远程未 push；上条摘要写 `COMMIT_COUNT=1` 是第 20 轮提交当时的快照，已在第 38 项更正。按新规则本轮文档改动后自动 `git add -A` + commit 归档。
 - **安全加固五项（第 22 轮）**：① SQL 注入审计——静态扫描 `server/src` 共 195 个 prepare/exec 点、14 个动态模板点，用户输入零拼入 SQL，排序列名/方向改 `SORT_COLUMNS`/`ORDER_DIRECTIONS` 白名单、非法值回落默认；② LIKE 转义——新增 `escapeLike()`+`ESCAPE '\'`，覆盖案例 q、机型/客户搜索与相似排序；③ 附件越权——raw 接口改用共享 `canViewCase()`（与 `caseScope()` 同源），实测 A 200 / B 403；④ 附件类型——响应 MIME 白名单 + `X-Content-Type-Options: nosniff`，上传按 magic bytes 判真实类型并覆盖扩展名，伪装 `.jpg` 的 HTML 上传被拒；⑤ 渲染/导出——`dangerouslySetInnerHTML` 全仓 0 命中，导入失败 CSV 对 `= + - @` 开头单元格加单引号。未碰 `chat.ts` 打分/准入/词典归一化与 `search_cache`。详见第 22 轮逐轮记录。
 - **真实数据闭环验证通过（第 24 轮）**：用户填 5 个决策点并提供真实案例内容，WX2001 技术员上传（id=39 / source=manual / 附件 id=4 / 8×8 PNG 75 字节 head=89504e47）→ WX1001 工程师 approve（status=approved / reviewer=陈立群）→ chat「R740 开机无显示 风扇满转」命中 #39（score=100 / similarity=100 / ScoreTrace `80÷80×100=100` / cases[0]）。只读基线 cases 33→34、sample 33 不变、非 sample 0→1、附件 0→1、缓存 2→1（upload 清缓存+chat 落缓存）。**最大未验证缺口已补上**；真实案例保留不删。详见第 24 轮逐轮记录。
+- **附件鉴权补测 + A1 删除示例数据（第 25 轮）**：① 真实附件鉴权——WX2001 作者 `GET /attachments/4/raw` → 200 / `image/png` / 75 字节 / head=89504e47 / nosniff；WX2002 赵鹏程（跨技术员）取同一附件与 `GET /cases/39` **均为 200**（案例已 approved，符合 `caseScope` 技术员可见他人已归档案例的真实逻辑，未改代码迎合预期）。② A1 删除——`POST /cases/purge-samples`（WX1001）→ `deleted=33`、自动备份 `server/backups/repair-20261123-201050.db`（155648 字节）；删后基线 cases=1 / sample=0 / manual=1 / 附件=1（id=4 仍在）/ cache=0；chat「R740 无显示」仍命中 #39（score=100，ScoreTrace `60÷60×100=100`），chat「不存在的机型XYZ」如实返回「知识库中未找到相似案例，建议上传现场记录。」（cases=[] / admittedCount=0 / route=llm）。备份保留、开发库仅剩 1 条真数据。详见第 25 轮逐轮记录。
 
 ### 启动命令
 
@@ -700,6 +701,7 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 
 **遗留问题 / 需人工确认**：下一步计划分三类——① 需用户点头才能做：删除 33 条示例案例、配置远程并 push、真实上游错误码实调是否投入 token、初始密码是否更换；② 可由 AI 直接推进（用户一句话即可）：浏览器人工点测辅助、会话过期定时器、独立审核日志表、导入会话持久化、导入模板附件列、llm_calls 清理策略；③ 长期：并发压测、大规模数据迁移。详见未解决问题第 1–4、7、13–15、19–22、27、29、33–35、38 项。
 41. **真实案例闭环已完成、案例保留（第 24 轮）**：用户明确 5 个决策点并提供真实案例内容（Dell PowerEdge R740 / 某银行数据中心 / VRM 虚焊），WX2001 上传 + WX1001 approve + chat 命中全走通；按用户决策点 4，该案例（id=39, source=manual）**验证完保留不删**，后续删 33 条 sample 时它不在范围，库不会空。auto_approve 上传前只读确认为 `"0"`。备份 `backups/repair-20261123-2001.db`（159744 字节，integrity ok）留存。仍未做：删 sample、push、改密码、清理副本 r23-evidence 与 git 不可达提交 `09a9876`/`a2b0268`、浏览器人工点测。
+42. **A1 已完成（第 25 轮）**：33 条 sample 已通过 `POST /cases/purge-samples` 删除、自动备份 `server/backups/repair-20261123-201050.db` 保留；开发库只剩 id=39 一条真数据 + 附件 id=4，chat 命中与未找到兜底均已实测。**A1 已销账**；剩余 A2（push）、A3（改密码）仍未做、需用户决定。附件跨技术员取图实测 200（approved 案例对全体技术员可见）为真实逻辑、未改代码。
 
 ---
 
@@ -756,6 +758,29 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **未验证 / 未执行（如实）**：浏览器人工点测（真实图片 blob 预览、CSV 用 Excel 打开）未做；approved 案例附件跨技术员可见性未测；git 历史 uploads 图片清理未执行；33 条 sample 未删、未 push、未改密码；副本 `r23-evidence` 与 git 不可达提交 `09a9876`/`a2b0268` 未清理（等确认）。真实案例 id=39 按用户决策点 4 保留。
 
 **遗留问题 / 需人工确认**：见未解决第 41 项——真实案例保留；删 sample/push/改密码/清理副本与 git 历史/浏览器点测仍需用户决定。
+
+---
+
+### 第 25 轮 · 2026-11-23 — 附件鉴权补测 + A1 删除示例数据
+
+**用户要求**：合并处理两步、做完停下。第一步真实附件鉴权补测：WX2001 作者取 `/attachments/4/raw`（预期 200/image/png/75 字节）；WX2002 跨技术员（赵鹏程，Test@1234）取同一附件与 `/cases/39`，按 caseScope 规则预期均 200，若实际 403 只记录不改代码。第二步 A1 删除：调 purge-samples 删 33 条 sample，确认级联/缓存，只读查删后基线（cases=1/sample=0/manual=1/附件=1），chat「R740 无显示」仍命中、chat「不存在的机型XYZ」如实回退未找到。红线：第一步只记录不改代码；删除仅限 source='sample' 不误删 id=39；不 push、不改密码。
+
+**实际改动文件**：业务代码零改动。新增 `server/verify/verify-r25-attachment-and-purge.cjs`；`PROJECT_LOG.md`（摘要、第 42 项、本条记录）。
+
+**实际验证过的命令与结果**：
+
+1. 前置只读：`CASE39={"id":39,"status":"approved","source":"manual","author":"李文博"}`；`ATT4={id:4,case_id:39,size:75}`；`BASELINE_BEFORE={"cases":34,"sample":33,"manual":1,"attachments":1,"cache":1}`。
+2. 第一步 1) WX2001 登录 → 200 `user={id:3,emp_no:WX2001,name:李文博,role:technician}`；`GET /api/attachments/4/raw` → `RESPONSE_STATUS=200`、`content-type=image/png`、`content-length=75`、`x-content-type-options=nosniff`、`cache-control=private, no-store`、`RESPONSE_BINARY_BYTES=75`、`RESPONSE_FIRST4_HEX=89504e47`、`STEP1_OWNER_STATUS=200 BYTES=75`。
+3. 第一步 2) WX2002 登录 → 200 `user={id:4,emp_no:WX2002,name:赵鹏程,role:technician}`（账号存在，非韩志远）；`GET /attachments/4/raw` → `RESPONSE_STATUS=200`、75 字节、head=89504e47；`GET /cases/39` → `RESPONSE_STATUS=200`、返回体含 status=approved、author=李文博、attachments=[id=4]；`STEP2_OTHER_TECH_RAW_STATUS=200`、`STEP2_OTHER_TECH_CASE_STATUS=200`。**真实逻辑是技术员可见他人已归档案例的附件，不是 403**；按用户红线未改代码迎合预期，只记录。
+4. 第二步 1) WX1001 登录 → 200 `user={id:1,...陈立群,engineer}`；`POST /cases/purge-samples` → `RESPONSE_STATUS=200`、`RESPONSE_BODY={"code":0,"data":{"deleted":33,"backup":"D:\\codebuddy\\repairs\\server\\backups\\repair-20261123-201050.db"},"message":"已清除 33 条示例数据"}`；备份 `PURGE_BACKUP_EXISTS=true`、`PURGE_BACKUP_SIZE=155648`。
+5. 第二步 2/3) 级联与基线：`ATT4_STILL_EXISTS={"id":4,"case_id":39}`；`ATTACHMENTS_OF_SAMPLE_IDS=[]`；`BASELINE_AFTER_PURGE={"cases":1,"sample":0,"manual":1,"attachments":1,"cache":0}`（purge 事务内 clearCache 已清空缓存）。
+6. 第二步 4) `POST /chat {"message":"R740 无显示"}` → 200；`HIT_CASES=[{"id":39,"source":"manual","score":100,"similarity":100}]`、`HIT_ADMITTED_COUNT=1`、`HIT_SUMMARY="共找到 1 条相似案例...推荐优先参考 #39..."`、`HIT_SCORE_TRACE` tokens=[model 40 命中 R740, symptom 20 命中 无显示]、`totalWeight=60`、`formula="60 ÷ 60 × 100 = 100"`。
+7. 第二步 5) `POST /chat {"message":"不存在的机型XYZ"}` → 200；`MISS_CASES=[]`、`MISS_WEAK_CASES=[]`、`MISS_ADMITTED_COUNT=0`、`MISS_SUMMARY="知识库中未找到相似案例，建议上传现场记录。"`、`MISS_KEYWORDS={model:'',symptoms:[],expanded:[]}`、原始返回 `route:"llm"`、`source:"ai"`（此次触发了真实模型调用但抽取为空，如实回退未找到，未被残留数据干扰）。
+8. `BASELINE_FINAL_AFTER_CHAT={"cases":1,"sample":0,"manual":1,"attachments":1,"cache":2}`（两次 chat 各落 1 条缓存）。
+
+**未验证 / 未执行（如实）**：浏览器人工点测（图片 blob 预览、CSV Excel 打开）未做；git 不可达提交 `09a9876`/`a2b0268` 未清理；副本 `r23-evidence` 与 TMPR23A/B 未清理（等确认）；push、改密码未做。本轮未跑 tsc/build（业务代码零改动）。
+
+**遗留问题 / 需人工确认**：A1 已销账（第 42 项）；剩 A2（push）、A3（改密码）、副本/git 历史清理、浏览器点测仍需用户决定。备份两份均保留：`backups/repair-20261123-2001.db`（上传前 33 条）与 `server/backups/repair-20261123-201050.db`（删除前 34 条）。
 
 ---
 
