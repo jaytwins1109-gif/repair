@@ -132,6 +132,7 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 37. **已解决（第 20 轮）：首次归档与「每轮必归档」规则**——#30/#32/#35/#36 的「首次 commit 待确认」已由用户「做一下 git 归档吧，以后每次任务完成也归档，写进规则里」授权并完成：根目录提交 `c2c7d38`（85 files / 17640 insertions），工作区干净、无远程、未 push；`CODEBUDDY.md` 第 16 条与 `PROJECT_LOG.md` 维护规矩第 14 条同步改为「每轮任务完成、编译通过后自动 `git add -A` + `git commit`，归档仅限本地、绝不擅自 push」。**push 仍需用户明确要求才做**；#29/#31/#35 的「删除 33 条示例案例」仍未执行、仍等逐条确认。
 38. **提交数更正与总结任务（第 21 轮）**：第 20 轮摘要中的 `COMMIT_COUNT=1` 是当时快照；本轮实测 `git log --oneline -5` → `67fdc93`（第 20 轮日志归档）与 `c2c7d38`（首次归档）共 2 条，`rev-list --all --count=2`、工作区干净（`## master` 无变更）、`remote -v` 空（未 push）。已根据用户要求梳理项目已做能力与下一步计划（见第 21 轮记录），并向用户明确：浏览器人工点测、真实上游 402/400/422、删除 33 条示例案例、push 到远程均仍未做。
 39. **第 22 轮安全加固已完成、等用户检查**：五项全部做完并实测通过（SQL 审计清单、LIKE 转义、附件越权、类型安全、渲染/导出注入），清理后开发库零写入（cases=33/附件=0/TMPR22=0）、副本目录已删。本轮严格未碰 `chat.ts` 打分/准入/词典归一化与 `search_cache`，未加任何点外功能；按用户「做完停下等我看」未做删除示例案例、未 push、未加浏览器点测等其它动作。
+40. **新报告规范生效（第 23 轮）**：用户定下以后每轮交付的硬规范——每项验证四段式（测什么/怎么测/实际输出/结论）、禁止只写结论词、清单数量与正文条数一致、高危测试产物列清理清单等用户确认后再删、临时脚本走 verify 守卫 + 副本、结尾给状态迁移表。本轮只补第 22 轮证据、业务代码零改动；新增 `verify-r23-evidence.ts`（不在 finally 清理）打印完整 URL/响应体。已把测试产物全部留下等确认：TMPR23A540592 / TMPR23B540592、案例 id=39、附件 id=4、文件 `server/verify/.db/r23-evidence/uploads/2026-11/444bec131d51c8852473466538d59854.png`、副本目录 `server/verify/.db/r23-evidence`、out 文件 `verify-r23-evidence-out.txt` 与 `verify-r22-sql-audit-out.txt`。另查实 `uploads/...02d6b7b8...png` **进过** git 历史（`09a9876` 树内含该 blob `22a565bf`），`a2b0268`/HEAD 已无，但 reflog 与对象库仍有 `09a9876`/`a2b0268`；补 `.gitignore` 不足以清历史，彻底清除需 `git reflog expire` + `git gc --prune=now` 或 filter-repo，等用户确认后再做。
 
 ---
 
@@ -729,3 +730,23 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **未验证 / 未执行（如实）**：浏览器人工点测（图片 blob 预览、附件越权在真实前端的表现、CSV 下载后用 Excel 实际打开确认不执行）**未做**；真实攻击者构造的 SQLi payload 只测了 ORDER BY 一处，其余靠静态审计；magic bytes 只覆盖 JPEG 头判定与 PNG 真图 + HTML 伪装拒收，WEBP 真图未单独造；`Content-Disposition` 附件下载文件名未改；删除 33 条示例案例、push、浏览器点测等点外动作按用户要求**未做**。
 
 **遗留问题 / 需人工确认**：等用户检查五项安全加固的实际输出与清单；若认可再做浏览器人工点测（CSV 用 Excel 打开、伪装修复后的图片预览）与是否继续处理未解决清单第 39 项以外的历史待办。
+
+---
+
+### 第 23 轮 · 2026-11-23 — 只补证据：新报告规范落地与第 22 轮逐条补证
+
+**用户要求**：定下通用报告规范（每项四段式、禁只写结论词、清单数量与正文一致、截断须注明、高危测试产物列清理清单等确认后再删、临时脚本走守卫+副本、结尾状态迁移表），并指定本轮只补第 22 轮证据、代码不动。
+
+**实际改动文件**：业务代码零改动。新增 `server/verify/verify-r23-evidence.ts`（证据采集脚本，finally 只关 server、不清理任何测试数据）；`PROJECT_LOG.md`（摘要、未解决问题第 40 项、本条记录）。测试产物全部保留、未清理，见第 40 项清单。
+
+**实际验证过的命令与结果**：
+
+1. 守卫负例：`node server/verify/verify-copy.mjs` → `[verify-guard] 必须显式传入 --db=<VACUUM INTO 独立测试库副本路径>；禁止回落到默认数据库路径 data/repair.db`，`EXIT=1`；`--db=.../server/data/repair.db` → `[verify-guard] 禁止把开发库 server/data/repair.db 当作测试库`，`EXIT=1`。守卫生效。
+2. 副本 `server/verify/.db/r23-evidence/data/repair.db`（`verify-copy.mjs` 生成），跑 `verify-r23-evidence.ts` → `BASE_URL=http://127.0.0.1:59301/api`，完整 URL/响应头/响应体写入 `verify-r23-evidence-out.txt`（63 行）。LIKE：`?q=%25` 与 `?q=_%E4%B8%8D%E6%98%BE%E7%A4%BA_` 均 `total=0 list=[]`；普通「不显示」`total=3 ids=[32,28,14]`。排序恶意值 → `code=0 total=33 CASES_AFTER=33`。附件：A `status=200 content-type=image/png`，B `status=403 body={"code":403,"data":null,"message":"无权查看该附件"}`，B 取案例 `403`。伪装 HTML `.jpg` → `code=1 message="仅支持 jpg / png / webp 格式的图片（已按文件内容校验）"`。
+3. 脚本第 51 行 `FAKE_FILES_ON_DISK` 判据错误（复用了 A 的真 PNG 路径）。独立实测：副本 uploads 目录 `FILE COUNT=1`（仅 `444bec...png` 70 字节 = A 的真图），`FAKE_CASES=0`，`ALL_ATTACHMENTS` 只有 id=4；伪装 HTML 未落盘。报告中据此更正。
+4. 上传→审核→鉴权取图链路：`CASE_AFTER_UPLOAD={"status":"pending","author":"第23轮临时技术员A","reviewer":"","reviewed_at":null}`；本轮**未调用 approve**，链路断在「审核」环节，未走通全链路。
+5. SQL 清单：重跑 `verify-r22-sql-audit.mjs` → `TOTAL_PREPARE_OR_EXEC_SITES=195 DYNAMIC_SITES=14`，完整清单在 `verify-r22-sql-audit-out.txt`；backup.ts 之后（cache/chat/dictionary/import/llm/migration/seedData）逐行齐全，14 个 DYNAMIC 站点全部列出并逐个说明绑定情况。排序白名单原文 `cases.ts:256-268`。
+6. 全项目搜 `dangerouslySetInnerHTML`（排除 node_modules）→ 0 命中。
+7. git 历史：`git ls-tree -r` 逐提交扫描，仅 `09a9876` 含 `uploads/2026-11/02d6b7b8ab2a26d752b697d2e192bbf0.png`（blob `22a565bf`），`c2c7d38/67fdc93/2ed4279/a2b0268/2f705f4` 均 0；`reflog --all` 原始输出留存 6 条，`09a9876`/`a2b0268` 对象仍在（`cat-file -t` = commit）。彻底清历史需 reflog expire + gc --prune=now 或 filter-repo，等确认。
+
+**未验证 / 未执行（如实）**：未做浏览器人工点测；未清历史残留提交（等确认）；未删测试产物（等确认）；本轮未跑 tsc/build（业务代码零改动）。
