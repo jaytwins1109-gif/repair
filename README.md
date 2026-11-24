@@ -20,6 +20,12 @@
 
 环境要求：Node.js 24（Windows 本机验证过），npm。
 
+**一键启动**（推荐）：
+- Windows：双击根目录 `start.bat`（自动检查 Node、首次安装依赖、启动服务并打开浏览器）
+- macOS / Linux：`bash start.sh`（自动检查 Node、首次安装依赖并启动服务）
+
+手动启动等效命令：
+
 ```bash
 # 1) 安装依赖（根目录一次装齐 server / client）
 npm run setup

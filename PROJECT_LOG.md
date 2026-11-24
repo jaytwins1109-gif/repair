@@ -963,3 +963,15 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **实际验证过的命令与结果**：待提交后见交付回复（README + 日志两文件，commit + push 输出）。
 
 **未验证 / 未执行（如实）**：未改业务代码与配置；真实 Excel 打开 CSV 仍为用户人工验收项。
+
+---
+
+### 第 34 轮 · 2026-11-24 — 一键启动脚本
+
+**用户要求**：「做个一键启动的脚本」。
+
+**实际改动文件**：新增 `start.bat`（Windows 双击版：UTF-8 chcp 65001、检查 Node、首次 `npm run setup`、`start ""` 打开浏览器 `http://localhost:5173`、`call npm run dev` 前台运行、出错 pause）；新增 `start.sh`（macOS/Linux：检查 Node、首次装依赖、`npm run dev` 前台运行）；`README.md` 快速开始加入两个脚本入口与手动等效命令；`PROJECT_LOG.md` 本条。**零业务代码改动。**
+
+**实际验证过的命令与结果**：`start.sh` 语法检查——本机无独立 bash，改用 PortableGit 自带 `D:\下载\WorkBuddy\resources\vendor\PortableGit\usr\bin\bash.exe -n start.sh` → `BASH_SYNTAX_EXIT=0`；`start.bat` 用 Get-Content 抽查前 8 行内容正常（PowerShell 控制台中文显示乱码但文件本身 UTF-8）；依赖目录 `node_modules`/`server/node_modules`/`client/node_modules` 均存在（脚本会走「跳过安装」分支）。**未实际启动长期服务**（避免占用端口/残留进程），脚本运行效果待使用者本机双击验证。
+
+**未验证 / 未执行（如实）**：未实际执行 `start.bat` / `start.sh` 跑起服务（仅语法与内容校验）；未改业务代码与配置；真实 Excel 打开 CSV 仍为用户人工验收项。
