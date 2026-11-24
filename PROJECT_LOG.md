@@ -909,3 +909,15 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **内容**：技术栈与快速开始（`npm run setup` / `npm run dev`、端口 3001/5173、首次启动自动建库迁移播种备份）；登录与角色（初始密码 `Repair@2026`、10 个种子账号表、工程师改密入口与机制）；主要功能模块表与检索准确性原则、附件安全取图方式；数据与目录（数据库/备份/上传路径、核心表、配置数据红线）；验证与测试（verify 脚本必须走独立副本守卫、Playwright E2E）；部署到 Private 仓库的 git 命令与敏感文件清单；人工验收项（Excel 打开 CSV）；交接说明（规则与历史见 CODEBUDDY.md/PROJECT_LOG.md、API Key 换机需重填）。**未改任何业务代码、未 push。**
 
 **实际验证过的命令与结果**：创建后 `git status --short --untracked-files=all` → 仅 `?? README.md`，无其它改动。内容依据：实际读取 `package.json`（根/server/client）、`server/src/index.ts`、`client/vite.config.ts`、`db/index.ts:220-237`（账号与密码常量）、`client/src/pages/` 目录清单、`ModelsAdminPage.tsx`（密钥脱敏与备份清空说明）、`.gitignore`。未跑编译（纯文档改动）。
+
+---
+
+### 第 30 轮 · 2026-11-24 — 创建「约束防护」文档
+
+**用户要求**：把防注入与 LLM 约束的工作归纳到一个文档，命名为「约束防护」。
+
+**实际改动文件**：新增根目录 `约束防护.md`（纯文档，零业务代码改动）。内容两大主题：① 防注入——SQL 全 `?` 绑定 + 排序白名单（195 构造点/14 动态点审计、恶意 sort 无效）、LIKE 转义、附件越权共享 `canViewCase`、magic bytes 类型伪装、CSV 公式注入前导单引号（含 Excel 原理与实测原文、Excel 打开为人工验收项）、前端 XSS 零命中；② 大模型约束——硬性准入 + 弱相关隔离不凑数、AI 扩展词只打分不准入、LLM 失败 try-catch 降级（第 26 轮修复）、上游错误码中文映射、密钥/配置数据红线、验证脚本独立副本守卫、会话清理与审批审计。附「防护对照速查」表（风险/防护/实现位置/验证状态），指向 `PROJECT_LOG.md` 第 14/15/16/22/26/28 轮证据。
+
+**实际验证过的命令与结果**：内容依据为只读搜索实际代码——`cases.ts:257-261`（SORT_COLUMNS/ORDER_DIRECTIONS）、`ImportModal.tsx:133-145`（csvCell/toast）、`chat.ts:238/253-289/405-441`（AI 词打分、硬性准入、降级 try-catch）、`llm.ts:307-336/491-508`（callOnce 错误映射与重试）、`access.ts:20-33`（canViewCase/escapeLike）、`attachments.ts:40-58`（raw 鉴权与 nosniff）、`middleware/upload.ts:51-86`（magic bytes）、`backup.ts:34-46`（备份清空 api_key）、`db/index.ts:13-29`（verify 守卫）、`PROJECT_LOG.md` 第 22 轮安全加固记录。未跑编译（纯文档）。
+
+**未验证 / 未执行（如实）**：未 push；真实 Excel 打开 CSV 验证仍为用户人工验收项；本轮未改任何业务代码与配置。
