@@ -939,3 +939,15 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **重要遗留（已告知用户）**：GitHub API 显示仓库 `private=false`（**公开仓库**），与用户此前明确的「维修知识库含客户名称、要 Private 私有仓库」冲突。改可见性需网页操作或有权限的 token（本机无 GitHub token、无 GH CLI、凭据管理器无 github 条目），AI 无凭据无法自行改为私有。已在交付回复中醒目提醒用户尽快在网页 Settings 改为 Private。此外 size 字段为 0 可能是 GitHub 尚未刷新统计，但 `ls-remote` 已证实提交确实推送成功。
 
 **未验证 / 未执行（如实）**：未把仓库改为私有（无凭据、无法网页操作）；未 push 除 master 外其它分支（无其它分支）；真实 Excel 打开 CSV 仍为用户人工验收项；本轮未改业务代码与配置。
+
+---
+
+### 第 32 轮 · 2026-11-24 — 转开源定位：MIT LICENSE + README 免责安全声明
+
+**用户要求**：既然决定开源，不再转 Private；① 根目录生成标准 MIT `LICENSE`，作者写用户本人；② `README.md` 最顶部加醒目免责与安全声明——说明演示/开源版本、仓库内案例/机型/客户名称均为模拟数据，提醒生产部署务必在设置页改默认密码并妥善保管 API Key；③ 改完 commit 并 push 到 origin master。
+
+**实际改动文件**：新增 `LICENSE`（MIT 协议全文，`Copyright (c) 2026 jaytwins1109-gif`——用户此前只提供 GitHub 账号与邮箱、未给真实姓名，按账号名署名）；`README.md` 顶部（标题之前）插入 blockquote 免责声明三要点（演示/开源 + 全模拟数据、生产必改 `SEED_INITIAL_PASSWORD` 默认 `Repair@2026`、API Key 存服务端 `llm_configs` 不入库需自管）；`PROJECT_LOG.md` 本条。**零业务代码改动。**
+
+**实际验证过的命令与结果**：待提交后补（LICENSE + README + 日志三文件，commit 与 push 输出见交付回复）。
+
+**未验证 / 未执行（如实）**：仓库保持公开（用户本轮明确决定开源、不再转 Private）；真实 Excel 打开 CSV 仍为用户人工验收项；未改任何业务代码与配置。
