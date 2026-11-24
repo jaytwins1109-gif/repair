@@ -921,3 +921,21 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **实际验证过的命令与结果**：内容依据为只读搜索实际代码——`cases.ts:257-261`（SORT_COLUMNS/ORDER_DIRECTIONS）、`ImportModal.tsx:133-145`（csvCell/toast）、`chat.ts:238/253-289/405-441`（AI 词打分、硬性准入、降级 try-catch）、`llm.ts:307-336/491-508`（callOnce 错误映射与重试）、`access.ts:20-33`（canViewCase/escapeLike）、`attachments.ts:40-58`（raw 鉴权与 nosniff）、`middleware/upload.ts:51-86`（magic bytes）、`backup.ts:34-46`（备份清空 api_key）、`db/index.ts:13-29`（verify 守卫）、`PROJECT_LOG.md` 第 22 轮安全加固记录。未跑编译（纯文档）。
 
 **未验证 / 未执行（如实）**：未 push；真实 Excel 打开 CSV 验证仍为用户人工验收项；本轮未改任何业务代码与配置。
+
+---
+
+### 第 31 轮 · 2026-11-24 — 首次推送 GitHub
+
+**用户要求**：用户明确授权「你帮我推吧」，给出 GitHub 账号 `jaytwins1109-gif`、邮箱 `jaytwins1109@gmail.com`、仓库名 `repair`，并在网页贴好 SSH 公钥后要求继续推送。
+
+**实际动作**：生成 ed25519 SSH 密钥对（`C:\Users\admin\.ssh\id_ed25519`，指纹 SHA256:+pJARQOVAkwpzJPbNw5nyauT+jJp28KJonsLJ1q4pS8）；用户添加公钥到 GitHub 后，配置 `origin` 为 `git@github.com:jaytwins1109-gif/repair.git` 并执行 `git push -u origin master`，将本地全部 12 个提交首次推送到远程。**本轮无业务代码改动。**
+
+**实际验证过的命令与结果**：
+1. 账号/仓库探测：`curl` → 账号 `jaytwins1109-gif` HTTP 200、仓库 `repair` 先 404（未建）后在用户建好变 200；`api.github.com/repos/jaytwins1109-gif/repair` → `full_name=jaytwins1109-gif/repair`、`private=false`、`size=0`。
+2. SSH 认证：用户贴公钥前 `git ls-remote ssh://...` → `Permission denied (publickey)` EXIT=128；贴公钥后同命令 EXIT=0（认证通过）。
+3. 推送：`git remote add origin git@github.com:jaytwins1109-gif/repair.git` → `PUSH_EXIT=0`，`* [new branch] master -> master`，`branch 'master' set up to track 'origin/master'`。
+4. 推送后验证：`git ls-remote origin` → `HEAD = refs/heads/master = 3fce7a1904996edb49844d55eb62fc6d849465da`，与本地最新提交 `3fce7a1 新增约束防护.md` 一致；`git status -sb` → `## master...origin/master`（无 ahead/behind）。
+
+**重要遗留（已告知用户）**：GitHub API 显示仓库 `private=false`（**公开仓库**），与用户此前明确的「维修知识库含客户名称、要 Private 私有仓库」冲突。改可见性需网页操作或有权限的 token（本机无 GitHub token、无 GH CLI、凭据管理器无 github 条目），AI 无凭据无法自行改为私有。已在交付回复中醒目提醒用户尽快在网页 Settings 改为 Private。此外 size 字段为 0 可能是 GitHub 尚未刷新统计，但 `ls-remote` 已证实提交确实推送成功。
+
+**未验证 / 未执行（如实）**：未把仓库改为私有（无凭据、无法网页操作）；未 push 除 master 外其它分支（无其它分支）；真实 Excel 打开 CSV 仍为用户人工验收项；本轮未改业务代码与配置。
