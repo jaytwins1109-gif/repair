@@ -1,0 +1,6 @@
+#  shells scripts must keep LF or Unix will fail with "bad interpreter"
+start.sh text eol=lf
+*.sh text eol=lf
+
+# Windows batch files must keep CRLF
+*.bat text eol=crlf
