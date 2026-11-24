@@ -951,3 +951,15 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **实际验证过的命令与结果**：待提交后补（LICENSE + README + 日志三文件，commit 与 push 输出见交付回复）。
 
 **未验证 / 未执行（如实）**：仓库保持公开（用户本轮明确决定开源、不再转 Private）；真实 Excel 打开 CSV 仍为用户人工验收项；未改任何业务代码与配置。
+
+---
+
+### 第 33 轮 · 2026-11-24 — README 与开源现状同步
+
+**用户要求**：「readme 更新一下」。据上下文判断，把 README 中与最新状态不符的内容同步——第 6 节仍写「未配置远程、未 push / 部署到私有仓库」，且未体现已推送 GitHub 与 MIT 许可。
+
+**实际改动文件**：`README.md` 三处——① 标题区加 MIT 徽章 `[![License: MIT](...)](LICENSE)`、开源仓库地址 `https://github.com/jaytwins1109-gif/repair` 与许可指向；② 第 6 节「部署到私有仓库（Private）」改为「代码托管与开源说明」（克隆命令 `git clone git@github.com:jaytwins1109-gif/repair.git`、`master` 已建立追踪、日常 push 命令、改 remote 命令、保留敏感文件复核）；③ 第 8 节交接说明加入 `约束防护.md` 文档指引。`PROJECT_LOG.md` 本条。**零业务代码改动。**
+
+**实际验证过的命令与结果**：待提交后见交付回复（README + 日志两文件，commit + push 输出）。
+
+**未验证 / 未执行（如实）**：未改业务代码与配置；真实 Excel 打开 CSV 仍为用户人工验收项。

@@ -6,7 +6,11 @@
 
 # 服务器主板维修 Agent
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 一个面向服务器板级维修场景的知识库 + 对话检索系统：把历史维修记录沉淀成案例库，技术员用自然语言描述故障现象即可检索相似案例；工程师负责案例审核、词典/机型维护、大模型配置与数据备份。
+
+**开源仓库**：<https://github.com/jaytwins1109-gif/repair>（MIT 许可，详见 [LICENSE](LICENSE)）。
 
 技术栈：Express 4 + TypeScript + better-sqlite3（后端）、React 18 + Vite 6 + Tailwind（前端）。数据全部落在本地 SQLite，无外部数据库依赖。
 
@@ -118,16 +122,19 @@ npx tsx server/verify/verify-xxx.mjs --db=<绝对路径>/server/verify/.db/<批�
 
 ---
 
-## 6. 部署到私有仓库（Private）
+## 6. 代码托管与开源说明
 
-本地历史均为 `git commit`，未配置远程、未 push。交接者自行创建 Private 远程仓库并推送，例如：
+本项目已开源托管于 <https://github.com/jaytwins1109-gif/repair>，采用 MIT 协议（见 [LICENSE](LICENSE)）。克隆：
 
 ```bash
-git remote add origin git@github.com:<你的账号>/<仓库名>.git
-git push -u origin master
+git clone git@github.com:jaytwins1109-gif/repair.git
+cd repair
+npm run setup && npm run dev
 ```
 
-敏感文件已在 `.gitignore` 排除：`node_modules`、`dist`、`server/data`、`server/backups`、`server/uploads`、所有 `*.db*`、`.env*`、`client/e2e/*.xlsx` 等。推送前可复核：
+- 默认分支 `master`，本地与远程已建立追踪；日常改动 `git add -A && git commit` 后 `git push origin master` 即可。
+- 如需改用自己的远程：`git remote set-url origin <你的仓库地址>`。
+- 敏感文件已在 `.gitignore` 排除：`node_modules`、`dist`、`server/data`、`server/backups`、`server/uploads`、所有 `*.db*`、`.env*`、`client/e2e/*.xlsx` 等。推送前可复核：
 
 ```bash
 git status --short --untracked-files=all      # 应为空
@@ -145,5 +152,6 @@ git ls-files | Select-String '\.(db|png|key|env)$'   # 应零命中
 ## 8. 交接说明
 
 - 项目规则与逐轮改动历史见根目录 `CODEBUDDY.md`、`PROJECT_LOG.md`（开工先读规则）。
+- **防注入与大模型约束的实现与验证结论**见根目录 `约束防护.md`（SQL/LIKE/附件/CSV 注入防护、LLM 准入与降级、密钥与配置红线等）。
 - API Key 在数据库 `llm_configs` 表中、不在仓库文件里；换机器后须在界面重新填写。
 - 本 README 面向使用者与交接；更细的逐轮验证证据见 `PROJECT_LOG.md`。
