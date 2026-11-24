@@ -975,3 +975,15 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **实际验证过的命令与结果**：`start.sh` 语法检查——本机无独立 bash，改用 PortableGit 自带 `D:\下载\WorkBuddy\resources\vendor\PortableGit\usr\bin\bash.exe -n start.sh` → `BASH_SYNTAX_EXIT=0`；`start.bat` 用 Get-Content 抽查前 8 行内容正常（PowerShell 控制台中文显示乱码但文件本身 UTF-8）；依赖目录 `node_modules`/`server/node_modules`/`client/node_modules` 均存在（脚本会走「跳过安装」分支）。**未实际启动长期服务**（避免占用端口/残留进程），脚本运行效果待使用者本机双击验证。
 
 **未验证 / 未执行（如实）**：未实际执行 `start.bat` / `start.sh` 跑起服务（仅语法与内容校验）；未改业务代码与配置；真实 Excel 打开 CSV 仍为用户人工验收项。
+
+---
+
+### 第 35 轮 · 2026-11-24 — 用户重申「每次任务后都 git commit」
+
+**用户要求**：「以后每次任务后都 git commit」。
+
+**回应与处理**：该要求与现行 `CODEBUDDY.md` 第 16 条「git 归档（每轮任务完成必做）：每轮任务完成、编译通过后自动执行 `git add -A` 后 `git commit`，中文提交信息」完全一致，无须修改规则文件；仅按用户重申在本轮日志中明确记录，并照常完成本轮归档与推送。后续每轮继续执行：任务完成 → `git add -A` → `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit`（中文信息）→ 推送 `origin master`（自第 31 轮起已建立远程）。**本轮无业务代码改动。**
+
+**实际验证过的命令与结果**：本轮提交与推送输出见交付回复。
+
+**未验证 / 未执行（如实）**：无；本轮仅规则确认与日志归档。
