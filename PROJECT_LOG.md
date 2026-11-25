@@ -1004,3 +1004,23 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 5. 临时只读脚本 `verify-r36-backups.cjs`、`verify-r36-seedcount.cjs` 用完已删。
 
 **未验证 / 未执行（如实）**：**未执行恢复**（用户仅问「能恢复？」属询问，恢复是写库操作需其明确授权）；未把备份整体覆盖回开发库（红线禁止且会清空 api_key）；真实 Excel 打开 CSV 仍为用户人工验收项。登录页显示按钮未跑 E2E，仅编译验证。
+
+---
+
+### 第 37 轮 · 2026-11-25 — 执行示例案例恢复
+
+**用户要求**：「恢复测试案例」（明确授权写库恢复）。承接第 36 轮调查结论——30 条示例案例源码仍在、可安全重播种子补齐。
+
+**实际动作**：写一次性数据恢复脚本 `server/scripts/restore-samples.mjs`（非 verify 前缀、不设 REPAIR_VERIFY，属数据恢复非验证脚本），流程：① 备份开发库到 `server/backups/repair-before-sample-restore-2026-11-25T09-10-04.db`（回退点，被 `.gitignore:21 backups/` 忽略、不入库）；② 只读记录 BEFORE 基线；③ `process.chdir(serverDir)` 后动态 import `seedData.ts`，调用 `seedCases()` 幂等补插；④ 只读 AFTER 断言；⑤ 用完删除脚本。首次运行因 Windows `import.meta.url` 路径解析出 `D:\D:\...` 报 ENOENT，改用 `fileURLToPath(import.meta.url)` 修正后成功。
+
+**实际验证过的命令与结果**：`npx tsx server/scripts/restore-samples.mjs` →
+```text
+BACKUP=D:\codebuddy\repairs\server\backups\repair-before-sample-restore-2026-11-25T09-10-04.db
+BEFORE={"cases":1,"sample":0,"has39":true,"att4":true,"apiKeyMask":"sk-b****07ca","settings":8,"symptomDict":14,"modelAlias":28}
+SEED_REPORT={"models":0,"customers":0,"cases":30}
+AFTER={"cases":31,"sample":30,"has39":true,"att4":true,"apiKeyMask":"sk-b****07ca","settings":8,"symptomDict":14,"modelAlias":28}
+RESTORE_OK=true  RESTORE_EXIT=0
+```
+断言覆盖：cases 增量 = report.cases（30）、sample 增量一致、id=39 与附件4 仍在、api_key 掩码不变、`settings`(8)/`symptom_dict`(14)/`model_alias`(28) 三类配置表行数不变。**完全符合红线**（只写 cases/models/customers、幂等 INSERT OR IGNORE 语义、不碰配置表、不整体覆盖）。回退点备份保留可被 gitignore 忽略；一次性脚本已删。
+
+**未验证 / 未执行（如实）**：第 25 轮删除的 33 条中有 3 条为手动/导入数据、源码不可复原，本次只恢复源码可复原的 30 条（案例库现 31 条 = 1 真 + 30 示例）；未跑 E2E（仅恢复数据）；真实 Excel 打开 CSV 仍为用户人工验收项；本轮无业务代码改动。
