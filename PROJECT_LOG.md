@@ -987,3 +987,20 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 **实际验证过的命令与结果**：本轮提交与推送输出见交付回复。
 
 **未验证 / 未执行（如实）**：无；本轮仅规则确认与日志归档。
+
+---
+
+### 第 36 轮 · 2026-11-25 — 登录页显示密码按钮 + 案例恢复可行性调查
+
+**用户要求**：① 登录界面密码输入框加「显示密码」按钮；② 问「用例库的测试案例怎么全部删了？能恢复？」。
+
+**实际改动文件**：`client/src/pages/LoginPage.tsx` 加 `showPassword` 状态与密码框右侧「显示/隐藏」切换按钮（`type={showPassword?'text':'password'}`、aria-label、pr-[72px] 留位），图标组件无 eye 图标故用文本按钮；`PROJECT_LOG.md` 本条。**未执行任何数据恢复（用户仅询问能否恢复，未授权写库）。**
+
+**实际验证过的命令与结果**：
+1. 前端编译 `npm run build --prefix client` → `CLIENT_BUILD_EXIT=0`（54 modules、CSS 34.73KB / JS 289.58KB、3.25s）。
+2. 案例库现状（只读）：`SELECT COUNT(*) FROM cases` → 1，仅 `id=39 Dell PowerEdge R740 / 某银行数据中心 / source=manual / status=approved`；附件 1 条（id=4）。`cases` 表 21 列（无 title 列，调查时误用 title 报 SQLiteError，已纠正）。
+3. 备份现状（只读脚本统计 20 个 `repair-*.db`）：全部 `total=1 sample=0 has39=true attachments=1`——所有备份都发生在第 25 轮 A1 删除之后，**无法从备份恢复 sample**。
+4. 恢复可行性（只读）：`seedData.ts:35` 的 `CASE_SEEDS` 仍含 30 条种子案例（首条联想 SR650/华为、末条联想 SR650/中国联通）；`seedCases()`（`seedData.ts:119-180`）用 `exists.get(model,customer,symptom,repaired)` 幂等跳过 + `INSERT ... source='sample'`，只写 cases/models/customers，**不碰 `llm_configs`/`settings`/`symptom_dict`/`model_alias`、不删 id=39**，符合配置数据红线。即恢复路径存在且安全：重跑种子播种即可补回 30 条（第 25 轮删除的 33 条中另有 3 条为手动/导入数据，源码不可复原）。
+5. 临时只读脚本 `verify-r36-backups.cjs`、`verify-r36-seedcount.cjs` 用完已删。
+
+**未验证 / 未执行（如实）**：**未执行恢复**（用户仅问「能恢复？」属询问，恢复是写库操作需其明确授权）；未把备份整体覆盖回开发库（红线禁止且会清空 api_key）；真实 Excel 打开 CSV 仍为用户人工验收项。登录页显示按钮未跑 E2E，仅编译验证。

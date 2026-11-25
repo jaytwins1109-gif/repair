@@ -6,6 +6,7 @@ export function LoginPage() {
   const { login } = useAuth();
   const [empNo, setEmpNo] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -102,16 +103,26 @@ export function LoginPage() {
 
             <label className="block">
               <span className="mb-[7px] block text-[12px] font-semibold text-[#454D57]">密码</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError('');
-                }}
-                placeholder="请输入密码"
-                className="w-full rounded-lg border border-line bg-white px-[14px] py-[13px] text-[13.5px] outline-none transition-colors placeholder:text-[#B4BAC2] focus:border-accent focus:ring-4 focus:ring-accent/10"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="请输入密码"
+                  className="w-full rounded-lg border border-line bg-white py-[13px] pl-[14px] pr-[72px] text-[13.5px] outline-none transition-colors placeholder:text-[#B4BAC2] focus:border-accent focus:ring-4 focus:ring-accent/10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                  className="absolute right-[6px] top-1/2 -translate-y-1/2 rounded-md px-[8px] py-[6px] text-[11px] font-semibold text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+                >
+                  {showPassword ? '隐藏' : '显示'}
+                </button>
+              </div>
             </label>
 
             {error && (
