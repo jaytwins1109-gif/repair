@@ -34,6 +34,11 @@ if (verifyMode && !dbPath.replace(/\\/g, '/').includes('/verify/.db/')) {
  * 都不会再执行 seed()/runSeedAll()，用户删掉的示例数据或录错的案例不会复活。
  */
 const dbFileExistedBeforeOpen = fs.existsSync(dbPath);
+
+/** 第 45 轮：技术知识库的五个固定大分类，服务端与前端各保留一份相同顺序的清单 */
+export const KNOWLEDGE_CATEGORIES = ['BMC原理', '上电时序', 'CPU架构', '机种架构', '其他'] as const;
+export type KnowledgeCategoryName = (typeof KNOWLEDGE_CATEGORIES)[number];
+
 export const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 
@@ -96,6 +101,30 @@ db.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_model_assets_model ON model_assets(model_name);
+
+  /* 第 45 轮：技术知识库分类与文档。分类为固定 5 项，只用 INSERT OR IGNORE 播种，不 UPDATE 已有行。 */
+  CREATE TABLE IF NOT EXISTS knowledge_categories (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0
+  );
+
+  INSERT OR IGNORE INTO knowledge_categories (name, sort_order) VALUES
+    ('BMC原理', 1), ('上电时序', 2), ('CPU架构', 3), ('机种架构', 4), ('其他', 5);
+
+  CREATE TABLE IF NOT EXISTS knowledge_docs (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    category      TEXT NOT NULL,
+    title         TEXT NOT NULL,
+    file_name     TEXT NOT NULL,
+    relative_path TEXT NOT NULL,
+    file_type     TEXT NOT NULL,
+    size          INTEGER NOT NULL,
+    uploader      TEXT NOT NULL,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_knowledge_docs_category ON knowledge_docs(category);
 
   CREATE TABLE IF NOT EXISTS import_batches (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -433,6 +462,24 @@ export interface ModelAssetRow {
   file_type: 'image' | 'pdf';
   original_name: string;
   relative_path: string;
+  size: number;
+  uploader: string;
+  created_at: string;
+}
+
+export interface KnowledgeCategoryRow {
+  id: number;
+  name: string;
+  sort_order: number;
+}
+
+export interface KnowledgeDocRow {
+  id: number;
+  category: string;
+  title: string;
+  file_name: string;
+  relative_path: string;
+  file_type: string;
   size: number;
   uploader: string;
   created_at: string;

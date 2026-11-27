@@ -73,6 +73,7 @@
 - **机型级图纸资产（第 42 轮）**：新增 `model_assets` 表与鉴权接口，支持 PDF/PNG/JPEG/WEBP、单文件 30MB 上传与 magic bytes 校验；机型管理、案例详情、对话卡片三处入口共享同一资料抽屉，图片可滚轮缩放/拖拽平移，PDF 用 iframe 预览；文件全部落在 `uploads/` 并忽略入库。
 - **生产部署（第 43 轮）**：根脚本新增 `build`（后端 tsc + 前端 vite build）与 `start`（`node server/dist/index.js`）；同一 Express 进程在 3000 端口同时提供 API 与 `client/dist` 静态资源，并支持 React 深链接回退 `index.html`；新增面向运维的 `DEPLOY.md`（环境、目录、PM2/bat 常驻、单端口防火墙、备份策略）。生产模式已用 Playwright 实测登录/案例检索/图纸预览。
 - **README 同步生产入口（第 44 轮）**：README 顶部新增生产模式局域网说明（单端口 3000、只放行 3000），快速开始改为「开发模式 + 生产部署」双入口并指向 `DEPLOY.md`，验证章节补生产 E2E 证据指引，交接说明新增部署手册入口。
+- **技术知识库（第 45 轮）**：新增独立知识库模块——`knowledge_docs` / `knowledge_categories` 两张表与 5 个固定分类，doc/docx/xls/xlsx/ppt/pptx/pdf 上传（50MB）按 magic bytes 校验，四个带鉴权接口（列表/上传/取流/删除）；侧边栏新增「技术知识库」，左侧分类目录 + 右侧文档表格、标题/文件名搜索、上传弹窗、PDF iframe 预览与 Office 下载。只检索标题/文件名，不做全文检索。
 
 ### 启动命令
 
@@ -161,6 +162,7 @@ $env:PORT = '3000'; npm run start   # CMD 用 set PORT=3000 && npm run start
 44. **第 42 轮状态**：10MB PDF 上传、鉴权取流、三处入口与对话预览已用独立库 + TMP 账号 Playwright 验证；headless 截图中 PDF 插件页面为空白（blob URL 与 `application/pdf` 类型已断言），最终可视渲染建议在工位 PC 浏览器人工确认。
 45. **第 43 轮状态**：生产单端口模式已在本机用真正的 `node server/dist/index.js` + Playwright 验证通过（静态资源 200、SPA fallback、登录、案例检索、R740 图纸 PDF 预览）；`DEPLOY.md` 已写好，但 PM2/任务计划程序自启、防火墙放行与备份计划任务**只写成操作手册，未在另一台内网电脑实际执行**，目标机器迁移仍需用户按手册做一次验收；默认密码修改与 API Key 填写属上线前人工动作。
 46. **第 44 轮状态**：README 已同步生产单端口入口并指向 `DEPLOY.md`，与第 43 轮代码/文档不再脱节；目标机器实际迁移、自启与防火墙配置仍按第 45 项待人工执行。
+47. **第 45 轮状态**：技术知识库四个接口与 UI 已用独立库 + TMP 账号在生产单端口下 E2E 验证通过；docx 用最小 ZIP（含 `word/`）验证 magic bytes 识别，未用真实 Word 文档人工打开。Word/Excel/PPT 在线预览仍待未来接入微软/WPS API；全文检索按红线未做。
 
 ---
 
@@ -1223,3 +1225,53 @@ RESTORE_OK=true  RESTORE_EXIT=0
 4. Git 归档与 push：`git status --short --untracked-files=all` 清单为 `M PROJECT_LOG.md`、`M README.md`（无敏感文件）；`git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "README 同步生产部署入口并补写第44轮日志"` → `5756aab`（2 files / 39 insertions / 12 deletions）；`git push origin master` → `To github.com:jaytwins1109-gif/repair.git / 0f529a2..5756aab  master -> master`，`PUSH_EXIT=0`，推送后 `## master...origin/master` 干净。本条补记随后单独归档推送。
 
 **未验证 / 未执行（如实）**：README 中生产命令沿用第 43 轮已实测的 `npm run build` / `node server/dist/index.js`；`npm run start` 包装脚本仍未单独实跑。PM2 / 任务计划程序自启、防火墙放行、备份计划任务目标机器实做仍按第 45 项待人工验收。
+
+### 第 45 轮 · 2026-11-27 — 新增技术知识库模块
+
+**用户要求**：新增独立「技术知识库」模块，供维修员查阅 BMC 原理、上电时序、CPU 架构、机种架构等底层理论文档。任务一：新增 `knowledge_docs`（id/category/title/file_name/relative_path/file_type/size/uploader/created_at）与 `knowledge_categories`（id/name/sort_order，或硬编码 5 类）两张表；扩展上传中间件支持 doc/docx/xls/xlsx/ppt/pptx/pdf、单文件 50MB；新增上传/列表/鉴权取流/删除四个接口。任务二：侧边栏新增「技术知识库」，左分类目录 + 右文档表格，关键字按标题/文件名搜索，上传弹窗，PDF 复用 iframe 预览、Office 提供下载按钮。任务三：Playwright 上传「Intel平台上电时序.pdf」（上电时序）与「BMC培训.docx」（BMC原理），验证分类过滤、PDF 预览，提交并 push。红线：magic bytes 校验、取流鉴权、不做全文检索。
+
+**实际改动文件**：
+- `server/src/db/index.ts`：新增 `KNOWLEDGE_CATEGORIES` 常量（5 类）+ `KnowledgeCategoryRow` / `KnowledgeDocRow` 类型；`db.exec` 建 `knowledge_categories`（`INSERT OR IGNORE` 播种 5 类，不 UPDATE 已有行）与 `knowledge_docs` 表及 category 索引。
+- `server/src/middleware/upload.ts`：新增知识库扩展名/MIME 白名单、`knowledgeFileFilter`、`uploadKnowledge`（50MB、单文件）；新增 `detectKnowledgeType()` —— PDF 看 `%PDF-`，OOXML 看 `PK\x03\x04` + 包内 `word/`/`xl/`/`ppt/` 路径，老版 Office 看 OLE2 头 `D0 CF 11 E0 A1 B1 1A E1` + 内部目录名；新增 `verifyUploadedKnowledgeDocs()` 改真实后缀/MIME 并删除伪装文件；新增 `knowledgeUploadErrorToMessage()`（50MB 提示）；修复 multer/busboy 把 multipart 中文文件名按 latin1 解读的乱码，落盘后 `Buffer.from(name,'latin1').toString('utf8')` 还原。
+- 新增 `server/src/services/knowledgeDocs.ts`：分类常量校验、类别列表、标题/文件名 LIKE 检索（`escapeLike` + `LIKE_ESCAPE_SQL`，参数化）、入库/查询/删库连带删文件。
+- 新增 `server/src/routes/knowledgeDocs.ts`：`GET /api/knowledge-categories`、`POST /api/knowledge-docs`（title/category 必填且分类合法）、`GET /api/knowledge-docs?category=&q=`、`GET /api/knowledge-docs/:id/raw`（`requireAuth` + 取流再验 magic bytes + `nosniff` + `private, no-store`）、`DELETE /api/knowledge-docs/:id`（仅工程师或上传者）；`server/src/index.ts` 挂载。
+- 前端：`client/src/navigation.ts` 加 `knowledge` 页键与导航项；`client/src/App.tsx` import + 条件渲染；`client/src/api/types.ts` 加 `KNOWLEDGE_CATEGORIES` / `KnowledgeDoc`；`client/src/api/index.ts` 加 `fetchKnowledgeDocBlob`（Bearer + blob）与 list/upload/delete/download 方法；新增 `client/src/pages/KnowledgePage.tsx`（左侧分类目录带计数、右侧表格、关键字搜索、上传弹窗、PDF iframe 预览 + revokeObjectURL、Office 下载、工程师删除）。
+- 临时脚本：`server/verify/verify-r45-account.mjs`、`verify-r45-e2e.mjs` 都在固定目录、`verify-` 前缀、强制 `--db` 守卫，跑完自删；截图 `client/e2e/screenshots/r45-knowledge-all.png` / `r45-knowledge-preview.png` 与 `client/e2e/r45-e2e-out.txt` 被 gitignore 排除。
+
+**实际验证过的命令与结果**：
+1. 编译：`npm --prefix server run build` → `tsc` 无错误；`npm --prefix client run build` → `✓ 57 modules transformed`、`dist/index.html 0.79 kB`、`CSS 35.19 kB`、`JS 360.83 kB`、`✓ built in 4.26s`；最终 `npm run build` 再跑一次通过（`✓ built in 3.55s`）。
+2. E2E 首跑发现并修复真实缺陷：multer/busboy 把中文 `Intel平台上电时序.pdf` 解读成 latin1，页面显示 `Intelå¹³å°ä¸çµæ¶åº.pdf`，`getByText` 断言超时；`verifyUploadedKnowledgeDocs()` 中加 `decodeOriginalName()` 后重编译解决。首跑的临时账号/副本/脚本已按 finally 清理。
+3. 最终 E2E（四段式）：
+   - **测什么**：生产单端口下技术知识库上传、分类过滤、检索、PDF 预览、Office 下载、鉴权与 magic bytes 红线。
+   - **怎么测**：先 `node server/verify/verify-copy.mjs --db=<...r45-knowledge/data/repair.db>`，再 `node server/verify/verify-r45-e2e.mjs --db=<同上>`；脚本 spawn `node server/dist/index.js`（PORT=3000、cwd=副本目录、`REPAIR_DB_PATH=<副本>`、删掉 `REPAIR_VERIFY`），用 TMPR45ENG 临时工程师走真实 UI。
+   - **实际输出**（摘自 `client/e2e/r45-e2e-out.txt`）：
+     ```text
+     [static] {"dir":"D:\\codebuddy\\repairs\\client\\dist","enabled":true}
+     [repair-agent-server] http://localhost:3000
+     PDF_BYTES=590 DOCX_BYTES=600
+     DOCX_HEAD=504b0304 HAS_WORD_PATH=true
+     UI_LOGIN_AS=TMPR45ENG TOKEN=ff6798a8
+     UPLOAD_TWO_DOCS=true
+     CATALOG_POWER_ONLY_PDF=true
+     CATALOG_BMC_ONLY_DOCX=true
+     SEARCH_R740_ONLY_PDF=true
+     PDF_IFRAME_SRC=blob:http://127.0.0.1:3000/e06e95fe-a5fe-4a2b-bd43-f74c4435f
+     ASSERT_PDF_PREVIEW=true
+     DOCX_DOWNLOAD_NAME=BMC培训.docx
+     API_LIST_COUNT=2 TYPES=["docx","pdf"]
+     ASSERT_RAW_AUTH=true
+     ASSERT_RAW_REJECTS_ANON=true
+     FAKE_DOCX_CODE=1 MSG=仅支持 doc / docx / xls / xlsx / ppt / pptx / pdf 格式（已按文件内容校验）
+     ASSERT_MAGIC_BYTES_REJECT=true
+     DELETE_CODE=0 COUNT_AFTER_DELETE=1
+     ASSERT_DELETE=true
+     FINAL_CONSOLE_ERRORS=[]
+     COPY_DIR_DELETED=true
+     TMP_ACCOUNT_SCRIPT_DELETED=true
+     TMP_E2E_SCRIPT_DELETED=true
+     ```
+   - **结论**：所有断言为真。中文文件名修复后显示正确；两条分类过滤互不串档；`R740` 只命中标题含 R740 的 PDF；PDF 走 blob iframe 且类型 `application/pdf`；docx 下载名正确；匿名取流 401、伪装 HTML 文件被 magic bytes 拒绝、删除接口生效。`FINAL_FAILED_REQUESTS` 仅一条关闭浏览器时的 `blob:... net::ERR_ABORTED`，非业务失败。截图目视确认左分类/右表格布局与中文显示正常。
+4. 隔离与清理：VACUUM INTO 副本 + TMP 账号；生产进程 cwd 设为副本目录，`data/uploads/backups` 全落副本；未使用用户账号、未登出、未写开发库；副本目录与两个临时脚本删除（`COPY_DIR_DELETED=true` 等三条实测为真）。提交前 `git status --short --untracked-files=all` 仅 8 改 + 3 新源码文件，无数据库/附件/密钥/截图入库。
+5. Git 归档与 push：本条记录写完后执行 `git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit` + `git push origin master`，实际哈希与输出随后补记，不提前写结论。
+
+**未验证 / 未执行（如实）**：docx 用纯 JS 构造的最小 ZIP（含 `word/` 路径）验证识别，未拿真实 Word 文件人工打开；Word/Excel/PPT 在线预览按约定只提供下载，微软/WPS 在线预览 API 未接入；全文检索按红线未做；未对 xls/xlsx/ppt/pptx/doc 五种格式逐一上传实测（代码路径与 docx 同属 ZIP/OLE2 判定）；50MB 上限只设了配置、未造 50MB 文件实测。

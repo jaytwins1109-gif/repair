@@ -14,6 +14,7 @@ import type {
   ImportBatch,
   ImportExecuteResult,
   ImportParseResult,
+  KnowledgeDoc,
   LlmCall,
   LlmConfig,
   LlmConfigInput,
@@ -172,6 +173,20 @@ export async function fetchModelAssetBlob(id: number): Promise<Blob> {
   return response.blob();
 }
 
+export async function fetchKnowledgeDocBlob(id: number): Promise<Blob> {
+  const token = getToken();
+  const response = await fetch(`/api/knowledge-docs/${id}/raw`, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (response.status === 401) {
+    clearToken();
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    throw new Error('登录已失效，请重新登录');
+  }
+  if (!response.ok) throw new Error('技术文档加载失败');
+  return response.blob();
+}
+
 export const api = {
   login(emp_no: string, password: string) {
     return request<LoginResult>('/auth/login', {
@@ -216,6 +231,23 @@ export const api = {
   },
   deleteModelAsset(id: number) {
     return request<{ id: number }>(`/model-assets/${id}`, { method: 'DELETE' });
+  },
+
+  listKnowledgeDocs(category = '', q = '') {
+    return request<KnowledgeDoc[]>(`/knowledge-docs${toQuery({ category, q })}`);
+  },
+  uploadKnowledgeDoc(category: string, title: string, file: File, onProgress?: (percent: number) => void) {
+    const form = new FormData();
+    form.append('category', category);
+    form.append('title', title);
+    form.append('file', file);
+    return uploadWithProgress<KnowledgeDoc>('/knowledge-docs', form, onProgress);
+  },
+  deleteKnowledgeDoc(id: number) {
+    return request<{ id: number }>(`/knowledge-docs/${id}`, { method: 'DELETE' });
+  },
+  downloadKnowledgeDoc(id: number, fileName: string) {
+    return download(`/knowledge-docs/${id}/raw`, fileName);
   },
 
   listCustomers(q = '') {

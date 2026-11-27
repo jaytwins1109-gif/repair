@@ -14,6 +14,7 @@ import { LoginPage } from './pages/LoginPage';
 import { CasesPage } from './pages/CasesPage';
 import { ChatPage } from './pages/ChatPage';
 import { CustomersPage } from './pages/CustomersPage';
+import { KnowledgePage } from './pages/KnowledgePage';
 import { ModelsPage } from './pages/ModelsPage';
 import { ModelsAdminPage } from './pages/ModelsAdminPage';
 import { PendingPage } from './pages/PendingPage';
@@ -66,6 +67,7 @@ function AppShell() {
               onUpload={openUpload}
             />
           )}
+          {page === 'knowledge' && <KnowledgePage />}
           {page === 'models' && <ModelsPage version={version} />}
           {page === 'customers' && <CustomersPage version={version} />}
           {page === 'pending' && (

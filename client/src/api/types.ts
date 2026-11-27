@@ -50,6 +50,29 @@ export interface ModelAsset {
   created_at: string;
 }
 
+/** 第 45 轮：技术知识库五个固定分类，顺序与服务端 KNOWLEDGE_CATEGORIES 一致 */
+export const KNOWLEDGE_CATEGORIES = [
+  'BMC原理',
+  '上电时序',
+  'CPU架构',
+  '机种架构',
+  '其他',
+] as const;
+
+export type KnowledgeCategory = (typeof KNOWLEDGE_CATEGORIES)[number];
+
+export interface KnowledgeDoc {
+  id: number;
+  category: string;
+  title: string;
+  file_name: string;
+  relative_path: string;
+  file_type: string;
+  size: number;
+  uploader: string;
+  created_at: string;
+}
+
 export interface Case {
   id: number;
   model: string;
