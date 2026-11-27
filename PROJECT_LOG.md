@@ -68,6 +68,8 @@
 
 - **就近搜索（第 40 轮）**：移除顶栏中间的全局搜索框与强制跳转，顶栏只保留页面标题、上传案例按钮、用户信息/退出；各页继续使用自己的搜索入口——对话底部输入框、案例库关键字/客户/型号/分类/状态筛选、机型与客户管理页局部搜索。Playwright 截图与断言见第 40 轮记录。
 
+- **V1.0 桌面端定稿（第 41 轮）**：README 顶部明确 PC 桌面端（1080p+）、仅公司内网使用、局域网访问与 Windows 防火墙放行 3001/5173；1920x1080 视觉验收截图已留档；一次性验证脚本已清理，仅保留 `verify-copy`/`verify-guard` 基础设施与四个 E2E 套件。明确不适配移动端。
+
 ### 启动命令
 
 ```powershell
@@ -141,6 +143,7 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 40. **新报告规范生效（第 23 轮）**：用户定下以后每轮交付的硬规范——每项验证四段式（测什么/怎么测/实际输出/结论）、禁止只写结论词、清单数量与正文条数一致、高危测试产物列清理清单等用户确认后再删、临时脚本走 verify 守卫 + 副本、结尾给状态迁移表。本轮只补第 22 轮证据、业务代码零改动；新增 `verify-r23-evidence.ts`（不在 finally 清理）打印完整 URL/响应体。已把测试产物全部留下等确认：TMPR23A540592 / TMPR23B540592、案例 id=39、附件 id=4、文件 `server/verify/.db/r23-evidence/uploads/2026-11/444bec131d51c8852473466538d59854.png`、副本目录 `server/verify/.db/r23-evidence`、out 文件 `verify-r23-evidence-out.txt` 与 `verify-r22-sql-audit-out.txt`。另查实 `uploads/...02d6b7b8...png` **进过** git 历史（`09a9876` 树内含该 blob `22a565bf`），`a2b0268`/HEAD 已无，但 reflog 与对象库仍有 `09a9876`/`a2b0268`；补 `.gitignore` 不足以清历史，彻底清除需 `git reflog expire` + `git gc --prune=now` 或 filter-repo，等用户确认后再做。
 41. **第 39 轮状态（待人工点测）**：System Prompt 已配置化并注入实际 LLM 调用，API 实测保存/清空回退默认值成功且 `api_key` 未变；浏览器端「模型管理 → 系统提示词 textarea / 恢复默认值」与对话专业人设的观感仍需人工确认。上游失败时聚合用模板兜底、追问用固定不可用文案兜底，本轮未制造 401 实测；意图拦截仍为纯规则，未覆盖全部中文问法。
 42. **第 40 轮状态**：顶栏全局搜索已移除，就近搜索已用独立测试库 + TMP 临时账号的 Playwright 真实浏览器验证通过；两张截图为自动生成，最终观感仍需用户在云电脑浏览器人工确认。全程未使用用户账号、未调用登出；副本目录与临时账号脚本已删除。
+43. **第 41 轮（V1.0 发布）**：桌面端 1080p 布局已由 Playwright 截图验收，最终人工视觉确认仍建议由用户在工位 PC 完成；移动端明确不在范围内，后续不再评估小屏适配。README 已写明禁止公网映射，局域网放行仅为内网工位访问。
 
 ---
 
@@ -1097,3 +1100,23 @@ RESTORE_OK=true  RESTORE_EXIT=0
 5. Git 归档：`git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "移除顶栏全局搜索，采用页面内就近搜索并新增Playwright验收"` → `b010315`（3 files / 225 insertions / 39 deletions）；`git push origin master` → `2f8f90f..b010315 master -> master`、`PUSH_EXIT=0`。提交前清单仅 `App.tsx`、`Header.tsx`、新 E2E 脚本，无敏感文件。本条日志随后单独归档推送。
 
 **未验证 / 未执行（如实）**：最终观感仍需用户在云电脑浏览器人工确认（已有 Playwright 真实浏览器截图与断言）；对话验证走的是缓存命中路径，未重新触发真实 LLM 抽取（本轮目标是 UI 搜索而非检索算法）；真实 Excel 打开 CSV 仍为用户人工验收项；未跑全量旧验证脚本。
+
+---
+
+### 第 41 轮 · 2026-11-27 — V1.0 桌面端最终定稿
+
+**用户要求**：最终业务评估确认所有场景都在机房/产线固定 PC 上，彻底放弃移动端适配，定位纯 PC 桌面端 Web 应用。① README 顶部补充终端适配（PC 桌面端、1080p+）、网络安全（仅内网、禁止公网端口映射）、局域网访问（`ipconfig` 查 IPv4 + 防火墙放行 3001/5173）；② V1.0 归档：全局体检（服务端 `tsc --noEmit`、前端 `npm run build`）、1920x1080 Playwright 截图对话页与案例库页、清理近几轮临时验证脚本、以 `chore: release v1.0.0 - 桌面端最终定稿` 提交并 push；③ 报告编译结果、截图路径、commit/push 状态，并明确回复「第 41 轮（不包含移动端）已全部结束，V1.0 正式发布」。
+
+**实际改动文件**：
+- `README.md`：顶部免责声明块内新增三条醒目说明——PC 桌面端/1080p+/不适配移动端；仅公司内网、禁止公网映射；局域网访问步骤（本机 `ipconfig` 查 IPv4、访问 `http://<本机IPv4>:5173`、Windows 入站规则或 `netsh advfirewall firewall add rule name="RepairAgent" dir=in action=allow protocol=TCP localport=3001,5173`）。
+- 清理近几轮一次性验证脚本：删除 `server/verify/` 下除 `verify-copy.mjs`、`verify-guard.mjs` 基础设施外的 24 个已跟踪验证脚本/输出（`verify-audit.mjs`、`verify-r16`～`verify-r28` 系列、`r22-sql-tail.txt`）与未跟踪的 `*-out.txt` / `r26-fail.xlsx`；删除本轮一次性截图脚本 `client/e2e/v1-shots.mjs` 与临时账号脚本 `verify-v1-account.mjs`；空的 `server/verify/.db/` 目录已删除。保留四个已提交的 E2E 套件 `r26/r38/r39/r40-e2e.mjs` 与截图目录。
+- `PROJECT_LOG.md`：本条与状态摘要/未解决问题清单同步。**未改任何业务代码，未做移动端适配或 PC 布局改动**（按用户要求保持当前 PC 端原样）。
+
+**实际验证过的命令与结果**：
+1. 全局体检：`& '.\server\node_modules\.bin\tsc.cmd' --noEmit -p server/tsconfig.json` → `SERVER_TSC_EXIT=0`；`npm run build --prefix client` → `CLIENT_BUILD_EXIT=0`（54 modules、CSS 34.65 KB / JS 290.66 KB、2.97s）。零错误。
+2. 1080p 视觉验收（`cd client && node e2e/v1-shots.mjs`，一次性脚本，独立库副本 + `TMPV1ENG` 临时工程师）：`TEST_SERVER_HEALTH=true`、`LOGIN_AS=TMPV1ENG`、`VIEWPORT={"width":1920,"height":1080}`、`ASSERT_NO_GLOBAL_SEARCH=true`、`ASSERT_CASES_TITLE=true`、`FINAL_CONSOLE_ERRORS=[]`、`SHOTS_EXIT=0`。截图 `client/e2e/screenshots/v1-chat-1080p.png`（对话页：顶栏仅标题/上传/用户信息，底部输入框已发送「R740开机无显示」，下方案例卡片完整）与 `client/e2e/screenshots/v1-cases-1080p.png`（案例库：31 条案例、8 行表格、分面筛选与操作列在 1080p 下完整可见）。截图被 `.gitignore` 排除，未入库。
+3. 隔离与清理：截图脚本用 `verify-copy.mjs` 从开发库只读生成副本，TMP 账号只写副本；未使用用户账号、未登出、未碰开发库；`COPY_DIR_DELETED=true`、`TMP_SCRIPT_DELETED=true`，最终 `server/verify/.db` 不存在。
+4. 临时脚本清理结果：`server/verify/` 仅剩 `verify-copy.mjs`、`verify-guard.mjs`；`client/e2e/` 仅剩 `screenshots/` 与四个 E2E 套件；清理后 `git status` 显示 `README.md` 修改 + 24 个已跟踪验证脚本删除 + 本日志变更，无敏感文件。
+5. Git 归档：按用户指定信息执行 `git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "chore: release v1.0.0 - 桌面端最终定稿"`，随后 `git push origin master`；本条日志随该单次终极提交一并写入，因此提交哈希与 push 状态记录在同轮交付回复中。
+
+**未验证 / 未执行（如实）**：1080p 截图为 Playwright 自动生成并目视核对，最终人工视觉确认仍建议在工位 PC 浏览器完成；移动端适配按评估结论**明确不做**，未做任何小屏媒体查询或响应式改动；真实 Excel 打开 CSV 仍是用户人工验收项；未跑全量旧验证脚本（本轮按要求只做全局编译 + 1080p 截图）。
