@@ -5,7 +5,8 @@
 > - **妥善保管 API Key**：对话检索的大模型 API Key 存放在服务端数据库 `llm_configs` 表中（不在仓库文件内），界面脱敏显示。请自行申请并保管密钥，**不要将真实 API Key 提交到仓库、写入日志或分享给他人**；备份文件会自动清空密钥，恢复后需在界面重新填写。
 > - **终端适配（PC 桌面端）**：本项目是纯粹的 PC 桌面端 Web 应用，专为 **1080p 及以上分辨率的工位电脑浏览器**设计与验收；**暂不适配手机等移动端小屏设备**，不提供响应式移动布局。
 > - **网络安全边界**：系统**仅供公司内部局域网使用**，请勿配置公网端口映射或使用反向代理暴露到公网；数据安全依托于公司内网的物理隔离、防火墙策略与终端管理，而非面向公网的安全设计。
-> - **局域网访问**：同机访问 `http://localhost:5173`。若需局域网内其他工位电脑访问：① 在本机打开 CMD/PowerShell 执行 `ipconfig`，记下当前网卡的 IPv4 地址（如 `192.168.1.10`）；② 其他电脑浏览器访问 `http://<本机IPv4>:5173`（Vite 已 `--host 0.0.0.0`）；③ 在 Windows「高级设置 → 入站规则」放行 TCP **3001**（后端 API）与 **5173**（前端），或以管理员身份执行 `netsh advfirewall firewall add rule name="RepairAgent" dir=in action=allow protocol=TCP localport=3001,5173`。仅建议在「专用网络」配置文件下放行。
+> - **局域网访问（开发模式）**：同机访问 `http://localhost:5173`。若需局域网内其他工位电脑访问：① 在本机打开 CMD/PowerShell 执行 `ipconfig`，记下当前网卡的 IPv4 地址（如 `192.168.1.10`）；② 其他电脑浏览器访问 `http://<本机IPv4>:5173`（Vite 已 `--host 0.0.0.0`）；③ 在 Windows「高级设置 → 入站规则」放行 TCP **3001**（后端 API）与 **5173**（前端），或以管理员身份执行 `netsh advfirewall firewall add rule name="RepairAgent" dir=in action=allow protocol=TCP localport=3001,5173`。仅建议在「专用网络」配置文件下放行。
+> - **局域网访问（生产模式）**：同机访问 `http://localhost:3000`，其他工位访问 `http://<服务器IPv4>:3000`，**只需放行 TCP 3000** 一个端口，不要再开 3001 / 5173。完整步骤见 [DEPLOY.md](DEPLOY.md)。
 
 # 服务器主板维修 Agent
 
@@ -23,21 +24,29 @@
 
 环境要求：Node.js 24（Windows 本机验证过），npm。
 
-**一键启动**（推荐）：
+**开发模式一键启动**（推荐本地开发）：
 - Windows：双击根目录 `start.bat`（自动检查 Node、首次安装依赖、启动服务并打开浏览器）
 - macOS / Linux：`bash start.sh`（自动检查 Node、首次安装依赖并启动服务）
 
 手动启动等效命令：
 
 ```bash
-# 1) 安装依赖（根目录一次装齐 server / client）
-npm run setup
-
-# 2) 一键启动开发服务（server :3001 + client :5173，带热重载）
-npm run dev
+npm run setup    # 安装依赖（根目录一次装齐 server / client）
+npm run dev      # 一键启动开发服务（server :3001 + client :5173，带热重载）
 ```
 
 打开浏览器访问 <http://localhost:5173>。 Vite 会把 `/api` 代理到后端 `http://localhost:3001`（见 `client/vite.config.ts`）。
+
+**生产部署**（单端口，推荐用于另一台内网电脑）：
+
+```bash
+npm run setup
+npm run build    # 一键构建：server/dist + client/dist
+set PORT=3000    # Windows CMD；Linux/macOS 用 export PORT=3000
+npm run start    # node server/dist/index.js，网页 + API 共用 3000
+```
+
+打开 <http://localhost:3000>；局域网其他电脑访问 `http://<服务器IPv4>:3000`，只需放行 TCP 3000。同一进程托管 `client/dist`，不需要再跑前端端口；后台常驻、开机自启、备份与故障排查见 **[DEPLOY.md](DEPLOY.md)**。
 
 单独启动/构建：
 
@@ -46,10 +55,10 @@ npm run dev:server     # tsx watch src/index.ts，后端 :3001
 npm run dev:client     # vite --host 0.0.0.0，前端 :5173
 npm --prefix server run build    # tsc 编译到 server/dist
 npm --prefix client run build    # tsc --noEmit && vite build，产物 client/dist
-npm --prefix server run start    # 用编译产物启动（生产形态）
+npm --prefix server run start    # 用编译产物启动
 ```
 
-`PORT` 环境变量可覆盖后端端口（默认 3001；若改端口需同步改 Vite proxy）。
+`PORT` 环境变量可覆盖后端端口（默认 3001，生产建议设为 3000；开发模式若改端口需同步改 Vite proxy）。
 
 首次启动时后端会自动：建库 → 跑迁移 → 播种种子数据（账号、演示案例、故障词典、机型别名）→ 备份数据库。迁移/播种结果和备份路径会打印在控制台：
 
@@ -127,7 +136,7 @@ npx tsx server/verify/verify-xxx.mjs --db=<绝对路径>/server/verify/.db/<批�
 # 3) 测完删除整个副本目录
 ```
 
-浏览器 E2E（需先装 Chromium）：`npx playwright install chromium`，然后 `cd client && node e2e/r26-e2e.mjs`（依赖开发服务已启动）。
+浏览器 E2E（需先装 Chromium）：`npx playwright install chromium`，然后 `cd client && node e2e/r26-e2e.mjs`（依赖开发服务已启动）。第 43 轮另用真正的生产入口 `node server/dist/index.js` + Playwright 在 3000 端口验证过静态资源、登录、案例检索与图纸 PDF 预览，断言与控制台输出见 `PROJECT_LOG.md` 第 43 轮记录。
 
 ---
 
@@ -138,7 +147,8 @@ npx tsx server/verify/verify-xxx.mjs --db=<绝对路径>/server/verify/.db/<批�
 ```bash
 git clone git@github.com:jaytwins1109-gif/repair.git
 cd repair
-npm run setup && npm run dev
+npm run setup && npm run dev      # 开发模式
+# 生产模式见 DEPLOY.md：npm run build && npm run start（单端口 3000）
 ```
 
 - 默认分支 `master`，本地与远程已建立追踪；日常改动 `git add -A && git commit` 后 `git push origin master` 即可。
@@ -161,6 +171,7 @@ git ls-files | Select-String '\.(db|png|key|env)$'   # 应零命中
 ## 8. 交接说明
 
 - 项目规则与逐轮改动历史见根目录 `CODEBUDDY.md`、`PROJECT_LOG.md`（开工先读规则）。
+- **生产环境部署手册**见根目录 `DEPLOY.md`（Node 版本、目录结构、单端口 3000、PM2 / Windows bat 自启、防火墙、备份策略）。
 - **防注入与大模型约束的实现与验证结论**见根目录 `约束防护.md`（SQL/LIKE/附件/CSV 注入防护、LLM 准入与降级、密钥与配置红线等）。
 - API Key 在数据库 `llm_configs` 表中、不在仓库文件里；换机器后须在界面重新填写。
 - 本 README 面向使用者与交接；更细的逐轮验证证据见 `PROJECT_LOG.md`。

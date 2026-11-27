@@ -72,6 +72,7 @@
 
 - **机型级图纸资产（第 42 轮）**：新增 `model_assets` 表与鉴权接口，支持 PDF/PNG/JPEG/WEBP、单文件 30MB 上传与 magic bytes 校验；机型管理、案例详情、对话卡片三处入口共享同一资料抽屉，图片可滚轮缩放/拖拽平移，PDF 用 iframe 预览；文件全部落在 `uploads/` 并忽略入库。
 - **生产部署（第 43 轮）**：根脚本新增 `build`（后端 tsc + 前端 vite build）与 `start`（`node server/dist/index.js`）；同一 Express 进程在 3000 端口同时提供 API 与 `client/dist` 静态资源，并支持 React 深链接回退 `index.html`；新增面向运维的 `DEPLOY.md`（环境、目录、PM2/bat 常驻、单端口防火墙、备份策略）。生产模式已用 Playwright 实测登录/案例检索/图纸预览。
+- **README 同步生产入口（第 44 轮）**：README 顶部新增生产模式局域网说明（单端口 3000、只放行 3000），快速开始改为「开发模式 + 生产部署」双入口并指向 `DEPLOY.md`，验证章节补生产 E2E 证据指引，交接说明新增部署手册入口。
 
 ### 启动命令
 
@@ -159,6 +160,7 @@ $env:PORT = '3000'; npm run start   # CMD 用 set PORT=3000 && npm run start
 43. **第 41 轮（V1.0 发布）**：桌面端 1080p 布局已由 Playwright 截图验收，最终人工视觉确认仍建议由用户在工位 PC 完成；移动端明确不在范围内，后续不再评估小屏适配。README 已写明禁止公网映射，局域网放行仅为内网工位访问。
 44. **第 42 轮状态**：10MB PDF 上传、鉴权取流、三处入口与对话预览已用独立库 + TMP 账号 Playwright 验证；headless 截图中 PDF 插件页面为空白（blob URL 与 `application/pdf` 类型已断言），最终可视渲染建议在工位 PC 浏览器人工确认。
 45. **第 43 轮状态**：生产单端口模式已在本机用真正的 `node server/dist/index.js` + Playwright 验证通过（静态资源 200、SPA fallback、登录、案例检索、R740 图纸 PDF 预览）；`DEPLOY.md` 已写好，但 PM2/任务计划程序自启、防火墙放行与备份计划任务**只写成操作手册，未在另一台内网电脑实际执行**，目标机器迁移仍需用户按手册做一次验收；默认密码修改与 API Key 填写属上线前人工动作。
+46. **第 44 轮状态**：README 已同步生产单端口入口并指向 `DEPLOY.md`，与第 43 轮代码/文档不再脱节；目标机器实际迁移、自启与防火墙配置仍按第 45 项待人工执行。
 
 ---
 
@@ -1207,3 +1209,17 @@ RESTORE_OK=true  RESTORE_EXIT=0
 5. Git 归档与 push：`git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "生产部署：单端口静态托管、根 build/start 脚本与 DEPLOY.md"` → `500a5bc`（`DEPLOY.md` +241、`PROJECT_LOG.md` +63、`package.json` +4/-1、`server/src/index.ts` +19，共 4 files / 325 insertions / 2 deletions）；首次 `git push origin master` 因 PowerShell 条件判断未执行，复核 `## master...origin/master [ahead 1]` 后单独重跑 `git push origin master` → `To github.com:jaytwins1109-gif/repair.git / 2700ef2..500a5bc  master -> master`，`PUSH_EXIT=0`。本条补记随后单独归档推送。
 
 **未验证 / 未执行（如实）**：`DEPLOY.md` 里的 PM2 与 Windows 任务计划程序自启、`netsh`/`ufw` 防火墙放行、robocopy 备份计划任务均只写成操作步骤，**未在本机或另一台内网电脑实际执行**；另一台电脑的真实迁移与局域网访问仍需用户按手册验收；上线前修改默认密码、填写 API Key 是人工动作，本轮未代做。headless 截图中的 PDF 插件区域仍为空白（第 42 轮已确认的 Chromium 限制），以 blob URL + `application/pdf` 类型作为渲染断言；`npm run start` 包装脚本未单独实跑，但 `build` 已验证同一 `--prefix` 机制，生产入口 `node server/dist/index.js` 已实跑。
+
+### 第 44 轮 · 2026-11-27 — README 同步生产部署入口
+
+**用户要求**：用户贴回第 43 轮说明文字并要求“应用以下代码”（实际为说明文字，非代码），按其末句建议把 `README.md` 同步成「开发模式 + 生产模式（见 DEPLOY.md，单端口 3000）」双入口，并归档推送。
+
+**实际改动文件**：`README.md`（顶部局域网说明、`## 1. 快速开始`、`## 5. 验证与测试`、`## 6. 代码托管` 克隆示例、`## 8. 交接说明` 共五处）；`PROJECT_LOG.md`（摘要新增第 44 项、未解决清单新增第 46 项、本条逐轮记录）。业务代码零改动；未新增依赖、未改 `DEPLOY.md` / `package.json` / `server/src/index.ts`。
+
+**实际验证过的命令与结果**：
+1. 开工只读复核：`git status -sb` → `## master...origin/master`（干净），`git log -2 --oneline` 为 `0f529a2`（日志归档）与 `500a5bc`（生产部署）；已读当前状态摘要与最近二十条逐轮记录（第 26～43 轮）。
+2. 改动后 `Grep README.md` 实测：`README.md:9` 新增「局域网访问（生产模式）：...只需放行 TCP 3000 一个端口，不要再开 3001/5173，完整步骤见 DEPLOY.md」；`README.md:40` 新增「**生产部署**（单端口，推荐用于另一台内网电脑）」；`README.md:45` 含 `set PORT=3000`，Linux/macOS 注释为 `export PORT=3000`；`README.md:49` 指向 DEPLOY.md；`README.md:151` 克隆示例补生产命令注释；`README.md:174` 交接说明新增部署手册入口。
+3. 本轮只改 Markdown，未重跑 `npm run build`；第 43 轮的构建与生产 Playwright 验收结果继续有效，未声称本轮重新编译。
+4. Git 归档与 push：本条记录写完后执行 `git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit` + `git push origin master`，实际哈希与输出随后补记，不提前写结论。
+
+**未验证 / 未执行（如实）**：README 中生产命令沿用第 43 轮已实测的 `npm run build` / `node server/dist/index.js`；`npm run start` 包装脚本仍未单独实跑。PM2 / 任务计划程序自启、防火墙放行、备份计划任务目标机器实做仍按第 45 项待人工验收。
