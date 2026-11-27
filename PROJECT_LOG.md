@@ -70,6 +70,8 @@
 
 - **V1.0 桌面端定稿（第 41 轮）**：README 顶部明确 PC 桌面端（1080p+）、仅公司内网使用、局域网访问与 Windows 防火墙放行 3001/5173；1920x1080 视觉验收截图已留档；一次性验证脚本已清理，仅保留 `verify-copy`/`verify-guard` 基础设施与四个 E2E 套件。明确不适配移动端。
 
+- **机型级图纸资产（第 42 轮）**：新增 `model_assets` 表与鉴权接口，支持 PDF/PNG/JPEG/WEBP、单文件 30MB 上传与 magic bytes 校验；机型管理、案例详情、对话卡片三处入口共享同一资料抽屉，图片可滚轮缩放/拖拽平移，PDF 用 iframe 预览；文件全部落在 `uploads/` 并忽略入库。
+
 ### 启动命令
 
 ```powershell
@@ -144,6 +146,7 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 41. **第 39 轮状态（待人工点测）**：System Prompt 已配置化并注入实际 LLM 调用，API 实测保存/清空回退默认值成功且 `api_key` 未变；浏览器端「模型管理 → 系统提示词 textarea / 恢复默认值」与对话专业人设的观感仍需人工确认。上游失败时聚合用模板兜底、追问用固定不可用文案兜底，本轮未制造 401 实测；意图拦截仍为纯规则，未覆盖全部中文问法。
 42. **第 40 轮状态**：顶栏全局搜索已移除，就近搜索已用独立测试库 + TMP 临时账号的 Playwright 真实浏览器验证通过；两张截图为自动生成，最终观感仍需用户在云电脑浏览器人工确认。全程未使用用户账号、未调用登出；副本目录与临时账号脚本已删除。
 43. **第 41 轮（V1.0 发布）**：桌面端 1080p 布局已由 Playwright 截图验收，最终人工视觉确认仍建议由用户在工位 PC 完成；移动端明确不在范围内，后续不再评估小屏适配。README 已写明禁止公网映射，局域网放行仅为内网工位访问。
+44. **第 42 轮状态**：10MB PDF 上传、鉴权取流、三处入口与对话预览已用独立库 + TMP 账号 Playwright 验证；headless 截图中 PDF 插件页面为空白（blob URL 与 `application/pdf` 类型已断言），最终可视渲染建议在工位 PC 浏览器人工确认。
 
 ---
 
@@ -1120,3 +1123,26 @@ RESTORE_OK=true  RESTORE_EXIT=0
 5. Git 归档：按用户指定信息执行 `git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "chore: release v1.0.0 - 桌面端最终定稿"`，随后 `git push origin master`；本条日志随该单次终极提交一并写入，因此提交哈希与 push 状态记录在同轮交付回复中。
 
 **未验证 / 未执行（如实）**：1080p 截图为 Playwright 自动生成并目视核对，最终人工视觉确认仍建议在工位 PC 浏览器完成；移动端适配按评估结论**明确不做**，未做任何小屏媒体查询或响应式改动；真实 Excel 打开 CSV 仍是用户人工验收项；未跑全量旧验证脚本（本轮按要求只做全局编译 + 1080p 截图）。
+
+---
+
+### 第 42 轮 · 2026-11-27 — 机型级图纸资产（原理图/点位图）
+
+**用户要求**：把图纸从「绑定案例」升级为「机型级共享资产」。① 新增 `model_assets` 表（`id, model_name, file_type, original_name, relative_path, size, uploader, created_at`）；② 上传中间件放宽到 PDF、30MB，并按 magic bytes 严格校验 PDF/PNG/JPEG/WEBP；③ 新增上传/列表/删除/鉴权取流四个接口；④ 机型管理页每行加「资料图纸」抽屉，案例详情和对话命中卡片各加图纸入口，图片支持滚轮缩放拖拽、PDF 用 iframe；⑤ Playwright 上传 10MB PDF 绑定 R740，对话检索后点「查看图纸」断言 PDF 渲染；⑥ 提交并 push，禁止图纸入库、取流必须鉴权。
+
+**实际改动文件**：
+- `server/src/db/index.ts`：新增 `model_assets` 表与 `idx_model_assets_model` 索引、`ModelAssetRow` 类型；`db.exec` 每次启动执行 `CREATE TABLE IF NOT EXISTS`，老库平滑生效，未写迁移数据操作。
+- `server/src/middleware/upload.ts`：白名单加 `application/pdf`/`.pdf`，单文件上限 30MB；新增 `detectAssetMime()`（`%PDF-` + 原三种图片头）与 `verifyUploadedAssets()`（落盘后按真实类型改后缀、伪装文件删除）；新增单文件 `uploadAsset` 中间件；错误文案泛化。
+- 新增 `server/src/services/modelAssets.ts`：列表/按 id 查询/入库/删文件；复用 `safeAttachmentPath()` 防目录穿越。
+- 新增 `server/src/routes/modelAssets.ts`：`POST /api/model-assets`（需 `model_name` + `file`，工程师/技术员均可传）、`GET /api/model-assets?model=xxx`、`DELETE /api/model-assets/:id`（仅上传者或工程师）、`GET /api/model-assets/:id/raw`（全程 `requireAuth`，按 magic bytes 返回真实 MIME、`nosniff`、`private, no-store`）。`server/src/index.ts` 挂载路由。
+- 前端：新增 `ModelAssetDrawer.tsx`（上传/列表/删除/预览；图片用 `react-zoom-pan-pinch` 缩放平移，PDF 用 iframe + blob URL，切换与卸载时 `revokeObjectURL`）；`api/index.ts` / `types.ts` 增加 `ModelAsset` 与列表/上传/删除/`fetchModelAssetBlob`；`ModelsPage.tsx` 每行加「资料图纸」；`CaseDrawer.tsx` 头部加「查看该机型的图纸资料」；`CaseCard.tsx` 加「查看图纸」并 `stopPropagation`，`ChatPage.tsx` 传入回调并渲染抽屉。
+- `client/package.json` / `package-lock.json`：新增纯 JS 依赖 `react-zoom-pan-pinch@^4.4.0`（无原生编译）。`.gitignore` 新增 `*.pdf` / `*.PDF`；现有 `uploads/`、`client/e2e/.tmp/` 继续忽略实际文件。新增 `client/e2e/r42-e2e.mjs`。
+
+**实际验证过的命令与结果**：
+1. 编译：`& '.\server\node_modules\.bin\tsc.cmd' --noEmit -p server/tsconfig.json` → `SERVER_TSC_EXIT=0`；`npm run build --prefix client` → `CLIENT_BUILD_EXIT=0`（56 modules、CSS 34.90 KB / JS 350.41 KB、3.08s）。
+2. E2E（`cd client && node e2e/r42-e2e.mjs`，独立库副本 + TMPR42ENG 临时工程师）：生成合法单页 PDF `PDF_BYTES=10486431`（约 10MB，头 `255044462d` 即 `%PDF-`）；`API_LOGIN_CODE=0`；上传 `UPLOAD_CODE=0`，资料行 `{"id":1,"model_name":"R740","file_type":"pdf","size":10486431,...}`；`ASSERT_UPLOAD_API=true`；鉴权取流 `ASSERT_RAW_AUTH=true`（200 + `application/pdf` + 10MB 字节数），匿名请求 `ASSERT_RAW_REJECTS_ANON=true`（code=401）；浏览器 `ASSERT_UI_ASSET_LIST=true`（机型管理抽屉显示 `r42-r740-schematic.pdf`）；对话检索后 `ASSERT_R740_CARD=true`，点「查看图纸」→「预览」得到 `IFRAME_SRC=blob:http://127.0.0.1:5173/...`、`BLOB_TYPE=application/pdf`、`ASSERT_PDF_PREVIEW=true`；`FINAL_CONSOLE_ERRORS=[]`、`E2E_EXIT=0`。
+3. 隔离与清理：`verify-copy.mjs` 从开发库只读生成副本，TMP 账号只写副本；未使用用户账号、未登出、未碰开发库；`COPY_DIR_DELETED=true`、`TMP_SCRIPT_DELETED=true`、`TMP_PDF_DELETED=true`，空的 `server/verify/.db/` 已删除。测试 PDF 位于 `client/e2e/.tmp/`，截图 `client/e2e/screenshots/r42-assets-ui.png` 与 `-out.txt` 均被 gitignore 排除，`git check-ignore` 三条全部命中。
+4. 调试过程中发现并修正：Playwright 路由转发 multipart 会丢文件体，最终改为「API 直传 + 浏览器路由只转发 JSON/blob GET」；PDF 生成器改为未引用大对象填充、正文保持短文本；headless Chrome 的 PDF 插件不出现在截图像素中，故以 iframe + blob `content-type` 作为渲染断言。
+5. Git 归档：`git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "新增机型级图纸资产：PDF/图片上传、鉴权取流、三处入口与缩放预览"` → `a8b2d95`（16 files / 771 insertions / 32 deletions）；`git push origin master` → `e5f42ef..a8b2d95 master -> master`、`PUSH_EXIT=0`。本条日志随后单独归档推送。
+
+**未验证 / 未执行（如实）**：headless 截图中 PDF 插件区域为空白（Chromium headless 限制），iframe blob URL 与 `application/pdf` 类型已断言，最终可视渲染仍建议在工位 PC 浏览器人工确认；图片缩放/平移组件已编译通过，但未对真实高分辨率图片做人工手感验收；删除接口与「仅上传者或工程师」权限分支未单独做 403 E2E（代码层已实现）；真实 Excel 打开 CSV 仍是人工验收项。
