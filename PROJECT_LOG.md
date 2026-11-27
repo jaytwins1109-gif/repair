@@ -64,6 +64,8 @@
 - **真实数据闭环验证通过（第 24 轮）**：用户填 5 个决策点并提供真实案例内容，WX2001 技术员上传（id=39 / source=manual / 附件 id=4 / 8×8 PNG 75 字节 head=89504e47）→ WX1001 工程师 approve（status=approved / reviewer=陈立群）→ chat「R740 开机无显示 风扇满转」命中 #39（score=100 / similarity=100 / ScoreTrace `80÷80×100=100` / cases[0]）。只读基线 cases 33→34、sample 33 不变、非 sample 0→1、附件 0→1、缓存 2→1（upload 清缓存+chat 落缓存）。**最大未验证缺口已补上**；真实案例保留不删。详见第 24 轮逐轮记录。
 - **附件鉴权补测 + A1 删除示例数据（第 25 轮）**：① 真实附件鉴权——WX2001 作者 `GET /attachments/4/raw` → 200 / `image/png` / 75 字节 / head=89504e47 / nosniff；WX2002 赵鹏程（跨技术员）取同一附件与 `GET /cases/39` **均为 200**（案例已 approved，符合 `caseScope` 技术员可见他人已归档案例的真实逻辑，未改代码迎合预期）。② A1 删除——`POST /cases/purge-samples`（WX1001）→ `deleted=33`、自动备份 `server/backups/repair-20261123-201050.db`（155648 字节）；删后基线 cases=1 / sample=0 / manual=1 / 附件=1（id=4 仍在）/ cache=0；chat「R740 无显示」仍命中 #39（score=100，ScoreTrace `60÷60×100=100`），chat「不存在的机型XYZ」如实返回「知识库中未找到相似案例，建议上传现场记录。」（cases=[] / admittedCount=0 / route=llm）。备份保留、开发库仅剩 1 条真数据。详见第 25 轮逐轮记录。
 
+- **技术向对话与专业人设（第 38/39 轮）**：对话新增意图路由——闲聊/系统指引（你是谁、怎么上传、怎么审核）不查库直接返回预设回复；「查看某客户/机型全部案例」由规则抽取条件查库后交 LLM 做自然语言总结（0 结果仍返回未找到）；多轮追问只依据上一轮 Top3 案例，未提及配件一律回复固定文案，绝不编造。`llm_configs` 新增 `system_prompt`，模型管理页可编辑/恢复默认（留空回退内置专业 Prompt），该 Prompt 同时注入检索条件抽取与对话/聚合/追问调用；E2E 截图与断言见逐轮记录。
+
 ### 启动命令
 
 ```powershell
@@ -135,6 +137,7 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 38. **提交数更正与总结任务（第 21 轮）**：第 20 轮摘要中的 `COMMIT_COUNT=1` 是当时快照；本轮实测 `git log --oneline -5` → `67fdc93`（第 20 轮日志归档）与 `c2c7d38`（首次归档）共 2 条，`rev-list --all --count=2`、工作区干净（`## master` 无变更）、`remote -v` 空（未 push）。已根据用户要求梳理项目已做能力与下一步计划（见第 21 轮记录），并向用户明确：浏览器人工点测、真实上游 402/400/422、删除 33 条示例案例、push 到远程均仍未做。
 39. **第 22 轮安全加固已完成、等用户检查**：五项全部做完并实测通过（SQL 审计清单、LIKE 转义、附件越权、类型安全、渲染/导出注入），清理后开发库零写入（cases=33/附件=0/TMPR22=0）、副本目录已删。本轮严格未碰 `chat.ts` 打分/准入/词典归一化与 `search_cache`，未加任何点外功能；按用户「做完停下等我看」未做删除示例案例、未 push、未加浏览器点测等其它动作。
 40. **新报告规范生效（第 23 轮）**：用户定下以后每轮交付的硬规范——每项验证四段式（测什么/怎么测/实际输出/结论）、禁止只写结论词、清单数量与正文条数一致、高危测试产物列清理清单等用户确认后再删、临时脚本走 verify 守卫 + 副本、结尾给状态迁移表。本轮只补第 22 轮证据、业务代码零改动；新增 `verify-r23-evidence.ts`（不在 finally 清理）打印完整 URL/响应体。已把测试产物全部留下等确认：TMPR23A540592 / TMPR23B540592、案例 id=39、附件 id=4、文件 `server/verify/.db/r23-evidence/uploads/2026-11/444bec131d51c8852473466538d59854.png`、副本目录 `server/verify/.db/r23-evidence`、out 文件 `verify-r23-evidence-out.txt` 与 `verify-r22-sql-audit-out.txt`。另查实 `uploads/...02d6b7b8...png` **进过** git 历史（`09a9876` 树内含该 blob `22a565bf`），`a2b0268`/HEAD 已无，但 reflog 与对象库仍有 `09a9876`/`a2b0268`；补 `.gitignore` 不足以清历史，彻底清除需 `git reflog expire` + `git gc --prune=now` 或 filter-repo，等用户确认后再做。
+41. **第 39 轮状态（待人工点测）**：System Prompt 已配置化并注入实际 LLM 调用，API 实测保存/清空回退默认值成功且 `api_key` 未变；浏览器端「模型管理 → 系统提示词 textarea / 恢复默认值」与对话专业人设的观感仍需人工确认。上游失败时聚合用模板兜底、追问用固定不可用文案兜底，本轮未制造 401 实测；意图拦截仍为纯规则，未覆盖全部中文问法。
 
 ---
 
@@ -1046,3 +1049,27 @@ RESTORE_OK=true  RESTORE_EXIT=0
 3. Playwright E2E（`cd client && node e2e/r38-e2e.mjs`）：`LOGIN_ERRORS=[]`；场景1 `ASSERT_1_SELF_INTRO=true`；场景2 回复「为您找到11条华为的维修记录，主要故障为接口类和供电类（各4条）。」`ASSERT_2_AGGREGATE=true`；场景3a 命中 4 条；场景3b 回复「在刚才检索到的历史案例中，没有提到相关配件的具体型号。」`ASSERT_3B_NO_HALLUCINATION=true`；`FINAL_CONSOLE_ERRORS=[]`；`E2E_EXIT=0`。四张截图 `client/e2e/screenshots/r38-scene{1-chitchat,2-aggregate,3a-search,3b-followup}.png` 已生成（被 gitignore 忽略）；截图目视确认场景3b 气泡带「多轮追问」徽章、回答为固定文案、下方展示 3 条上下文案例卡片。E2E 临时会话（标题「你是谁」id=3）已精确删除，剩余会话 0。
 
 **未验证 / 未执行（如实）**：LLM 总结为真实 DeepSeek 调用（已实测返回自然语言），若密钥失效时聚合用模板兜底、追问用「模型暂时不可用」文案兜底——兜底分支未单独制造 401 实测；真实 Excel 打开 CSV 仍为用户人工验收项；本轮未跑全量旧验证脚本（仅编译 + 新功能 API/E2E 实测）。意图拦截为纯规则关键词，未覆盖所有中文问法（如「请问你是哪位」不在自我介绍正则内，会走普通检索）。
+
+---
+
+### 第 39 轮 · 2026-11-27 — 自定义 System Prompt 并注入 LLM 调用（续做收尾）
+
+**用户要求**：让对话更具专业维修工程师特征——在 `llm_configs` 增加 `system_prompt` 字段；后端检索条件抽取与对话调用都注入 System Prompt；模型管理页增加 textarea，可保存并恢复默认值；预置用户指定的默认专业 System Prompt；E2E 验证「你是谁」「你能干什么」与 R740 案例追问 VRM 配件不编造。本轮为用户取消日志写入后要求「继续任务」的收尾。
+
+**实际改动文件**：
+- `server/src/services/migration.ts`：`LLM_CONFIG_COLUMNS` 增加 `system_prompt TEXT NOT NULL DEFAULT ''`，只加列不回填，遵守「迁移只做结构变更」红线。
+- `server/src/db/index.ts`：`llm_configs` 建表加列、`LlmConfigRow` 增字段。
+- `server/src/services/llm.ts`：新增 `DEFAULT_SYSTEM_PROMPT`（用户指定专业人设：基于真实案例、四段式回答、未提及明确说明绝不编造）与 `getSystemPrompt()`（空值回退默认）；`rowToPublic()` 返回 `system_prompt` / `system_prompt_default`，`createConfig()` / `updateConfig()` 写入；条件抽取 system = 人设 + 「本步只输出 json」内部说明 + 固定抽取指令（缓存前缀仍稳定），`chatWithPrompt()` 对话 system = 人设 + 任务指令。
+- `server/src/routes/llm.ts`：POST/PUT 透传 `system_prompt`。
+- `server/src/services/intents.ts`：自我介绍与能力说明文案改为专业人设口径。
+- `client/src/api/types.ts`、`client/src/pages/ModelsAdminPage.tsx`：`LlmConfig`/`LlmConfigInput` 加字段；模型管理页内置同款默认 Prompt、表单加 7 行 textarea 与「恢复默认值」按钮、编辑时回填。
+- `client/e2e/r39-e2e.mjs`：Playwright E2E 三场景与截图。**未改**检索打分/准入/阈值/词典/缓存，未写 `api_key`/`settings`/`symptom_dict`/`model_alias` 等配置数据。
+
+**实际验证过的命令与结果**：
+1. 编译（收尾复核）：`& '.\server\node_modules\.bin\tsc.cmd' --noEmit -p server/tsconfig.json` → `SERVER_TSC_EXIT=0`；`npm run build --prefix client` → EXIT=0（54 modules、CSS 34.75 KB / JS 291.44 KB、3.55s）。期间误用 `npx tsc -p server/tsconfig.json` 取到错误包并提示 "This is not the tsc command you are looking for"，改用服务端本地 `tsc.cmd` 后通过。
+2. 数据库迁移实测：`LLM_COLS=[...,"system_prompt"]`；生效配置 `ACTIVE={"id":1,"name":"DeepSeek 默认","sp_len":0}`（空值回退默认，未覆盖用户已有行）。
+3. API 保存/回退实测：`DEFAULT_HAS_PERSONA=true`、`SAVE_CODE=0`、`ASSERT_SAVED=true`、`API_KEY_UNCHANGED=true`、`RESTORE_CODE=0`、`ASSERT_RESTORED_DEFAULT=true`、`VERIFY_EXIT=0`。临时验证脚本 `server/verify/verify-r39-system-prompt.cjs` 用完已删。
+4. Playwright E2E（`cd client && node e2e/r39-e2e.mjs`）：`ASSERT_1_EXPERT_PERSONA=true`、`ASSERT_2_CAPABILITY=true`、`ASSERT_3A_HAS_CASE=true`、`ASSERT_3B_GROUNDED=true`、`ASSERT_3B_NO_FABRICATION=true`、`FINAL_CONSOLE_ERRORS=[]`、`CLEANED_SESSIONS=1`、`E2E_EXIT=0`。关键回答：「案例中 VRM 模块的维修是补焊虚焊引脚，并更换了一颗 10V 470μF 滤波电容，没有提到更换 VRM 模块本身。」四张截图 `client/e2e/screenshots/r39-scene{1-who,2-capability,3a-search,3b-followup}.png` 已生成（被 gitignore 忽略），E2E 临时会话已精确删除。
+5. Git 归档：`git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "新增自定义System Prompt并注入LLM调用，模型管理页支持编辑与恢复默认值"` → `7231cda`（8 files / 200 insertions / 12 deletions）；`git push origin master` → `7b2f172..7231cda master -> master`、`PUSH_EXIT=0`。提交前 `git status --short --untracked-files=all` 仅列出 7 个代码文件与 1 个 E2E 脚本，无敏感文件。本条日志随后单独归档推送。
+
+**未验证 / 未执行（如实）**：浏览器人工点测「模型管理 → 系统提示词 textarea / 恢复默认值」与对话专业人设观感未做（已有 Playwright 真实浏览器 E2E 与 API 实测）；上游失败时聚合模板兜底、追问固定文案兜底未制造 401 实测；真实 Excel 打开 CSV 仍为用户人工验收项；未跑全量旧验证脚本；本轮未新增依赖、未写业务数据。
