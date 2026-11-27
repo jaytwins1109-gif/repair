@@ -1220,6 +1220,6 @@ RESTORE_OK=true  RESTORE_EXIT=0
 1. 开工只读复核：`git status -sb` → `## master...origin/master`（干净），`git log -2 --oneline` 为 `0f529a2`（日志归档）与 `500a5bc`（生产部署）；已读当前状态摘要与最近二十条逐轮记录（第 26～43 轮）。
 2. 改动后 `Grep README.md` 实测：`README.md:9` 新增「局域网访问（生产模式）：...只需放行 TCP 3000 一个端口，不要再开 3001/5173，完整步骤见 DEPLOY.md」；`README.md:40` 新增「**生产部署**（单端口，推荐用于另一台内网电脑）」；`README.md:45` 含 `set PORT=3000`，Linux/macOS 注释为 `export PORT=3000`；`README.md:49` 指向 DEPLOY.md；`README.md:151` 克隆示例补生产命令注释；`README.md:174` 交接说明新增部署手册入口。
 3. 本轮只改 Markdown，未重跑 `npm run build`；第 43 轮的构建与生产 Playwright 验收结果继续有效，未声称本轮重新编译。
-4. Git 归档与 push：本条记录写完后执行 `git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit` + `git push origin master`，实际哈希与输出随后补记，不提前写结论。
+4. Git 归档与 push：`git status --short --untracked-files=all` 清单为 `M PROJECT_LOG.md`、`M README.md`（无敏感文件）；`git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "README 同步生产部署入口并补写第44轮日志"` → `5756aab`（2 files / 39 insertions / 12 deletions）；`git push origin master` → `To github.com:jaytwins1109-gif/repair.git / 0f529a2..5756aab  master -> master`，`PUSH_EXIT=0`，推送后 `## master...origin/master` 干净。本条补记随后单独归档推送。
 
 **未验证 / 未执行（如实）**：README 中生产命令沿用第 43 轮已实测的 `npm run build` / `node server/dist/index.js`；`npm run start` 包装脚本仍未单独实跑。PM2 / 任务计划程序自启、防火墙放行、备份计划任务目标机器实做仍按第 45 项待人工验收。
