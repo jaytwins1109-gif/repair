@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import fs from 'node:fs';
+import path from 'node:path';
 import './db';
 import { db, migrationReport, seedReport } from './db';
 import auth from './routes/auth';
@@ -55,6 +57,23 @@ app.use('/api', llm);
 app.use('/api', dictionary);
 
 app.use('/api', (_req, res) => fail(res, '接口不存在', 404, 404));
+
+// 第 43 轮：生产模式下由同一个 Express 进程托管前端构建产物，只需暴露一个端口。
+// 路径相对编译后的 server/dist/index.js 解析：server/dist/../../client/dist。
+const clientDist = path.resolve(process.env.REPAIR_CLIENT_DIST || path.join(__dirname, '../../client/dist'));
+const indexHtml = path.join(clientDist, 'index.html');
+const hasClientBuild = fs.existsSync(indexHtml);
+if (hasClientBuild) {
+  app.use(express.static(clientDist, { index: false }));
+  // React 前端使用客户端路由/刷新深链接时统一回退到 index.html；API 不参与回退。
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) return fail(res, '接口不存在', 404, 404);
+    return res.sendFile(indexHtml);
+  });
+} else {
+  app.get('*', (_req, res) => fail(res, '前端构建产物不存在，请先执行 npm run build', 503, 503));
+}
+console.log('[static]', JSON.stringify({ dir: clientDist, enabled: hasClientBuild }));
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('[server error]', err);

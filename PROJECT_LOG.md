@@ -71,6 +71,7 @@
 - **V1.0 桌面端定稿（第 41 轮）**：README 顶部明确 PC 桌面端（1080p+）、仅公司内网使用、局域网访问与 Windows 防火墙放行 3001/5173；1920x1080 视觉验收截图已留档；一次性验证脚本已清理，仅保留 `verify-copy`/`verify-guard` 基础设施与四个 E2E 套件。明确不适配移动端。
 
 - **机型级图纸资产（第 42 轮）**：新增 `model_assets` 表与鉴权接口，支持 PDF/PNG/JPEG/WEBP、单文件 30MB 上传与 magic bytes 校验；机型管理、案例详情、对话卡片三处入口共享同一资料抽屉，图片可滚轮缩放/拖拽平移，PDF 用 iframe 预览；文件全部落在 `uploads/` 并忽略入库。
+- **生产部署（第 43 轮）**：根脚本新增 `build`（后端 tsc + 前端 vite build）与 `start`（`node server/dist/index.js`）；同一 Express 进程在 3000 端口同时提供 API 与 `client/dist` 静态资源，并支持 React 深链接回退 `index.html`；新增面向运维的 `DEPLOY.md`（环境、目录、PM2/bat 常驻、单端口防火墙、备份策略）。生产模式已用 Playwright 实测登录/案例检索/图纸预览。
 
 ### 启动命令
 
@@ -81,6 +82,16 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 ```
 
 浏览器打开 `http://localhost:5173`。后端 API 前缀 `/api`，Vite 已配置代理。
+
+生产模式（单端口，详见 `DEPLOY.md`）：
+
+```powershell
+npm run setup    # 首次或依赖变化后
+npm run build    # 生成 server/dist 与 client/dist
+$env:PORT = '3000'; npm run start   # CMD 用 set PORT=3000 && npm run start
+```
+
+浏览器打开 `http://localhost:3000`（局域网用 `http://<服务器IPv4>:3000`）；只需放行 TCP 3000。
 
 ### 十个测试账号
 
@@ -147,6 +158,7 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 42. **第 40 轮状态**：顶栏全局搜索已移除，就近搜索已用独立测试库 + TMP 临时账号的 Playwright 真实浏览器验证通过；两张截图为自动生成，最终观感仍需用户在云电脑浏览器人工确认。全程未使用用户账号、未调用登出；副本目录与临时账号脚本已删除。
 43. **第 41 轮（V1.0 发布）**：桌面端 1080p 布局已由 Playwright 截图验收，最终人工视觉确认仍建议由用户在工位 PC 完成；移动端明确不在范围内，后续不再评估小屏适配。README 已写明禁止公网映射，局域网放行仅为内网工位访问。
 44. **第 42 轮状态**：10MB PDF 上传、鉴权取流、三处入口与对话预览已用独立库 + TMP 账号 Playwright 验证；headless 截图中 PDF 插件页面为空白（blob URL 与 `application/pdf` 类型已断言），最终可视渲染建议在工位 PC 浏览器人工确认。
+45. **第 43 轮状态**：生产单端口模式已在本机用真正的 `node server/dist/index.js` + Playwright 验证通过（静态资源 200、SPA fallback、登录、案例检索、R740 图纸 PDF 预览）；`DEPLOY.md` 已写好，但 PM2/任务计划程序自启、防火墙放行与备份计划任务**只写成操作手册，未在另一台内网电脑实际执行**，目标机器迁移仍需用户按手册做一次验收；默认密码修改与 API Key 填写属上线前人工动作。
 
 ---
 
@@ -1146,3 +1158,52 @@ RESTORE_OK=true  RESTORE_EXIT=0
 5. Git 归档：`git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "新增机型级图纸资产：PDF/图片上传、鉴权取流、三处入口与缩放预览"` → `a8b2d95`（16 files / 771 insertions / 32 deletions）；`git push origin master` → `e5f42ef..a8b2d95 master -> master`、`PUSH_EXIT=0`。本条日志随后单独归档推送。
 
 **未验证 / 未执行（如实）**：headless 截图中 PDF 插件区域为空白（Chromium headless 限制），iframe blob URL 与 `application/pdf` 类型已断言，最终可视渲染仍建议在工位 PC 浏览器人工确认；图片缩放/平移组件已编译通过，但未对真实高分辨率图片做人工手感验收；删除接口与「仅上传者或工程师」权限分支未单独做 403 E2E（代码层已实现）；真实 Excel 打开 CSV 仍是人工验收项。
+
+### 第 43 轮 · 2026-11-27 — 生产环境部署与迁移指南
+
+**用户要求**：脱离 `npm run dev`，让另一台内网电脑以生产模式稳定运行。任务一：核对 `package.json`（playwright 等测试依赖须在 `devDependencies`）、前后端 `build` 可用并产出纯生产级 `client/dist` / `server/dist`、后端生产环境直接托管前端静态文件并回退 React 路由，单端口部署。任务二：写面向运维/网管的傻瓜式 `DEPLOY.md`（环境要求、目录结构、`npm run start`、PM2 或 .bat 开机自启、防火墙与局域网访问、备份 `server/data/repair.db` 与 `server/uploads`）。任务三：执行 build、用 `node server/dist/index.js` 生产启动、Playwright 点测登录/案例检索/图纸预览，提交并 push。报告要求贴生产启动与静态资源加载控制台输出、DEPLOY.md 全文。
+
+**实际改动文件**：
+- `package.json`：根新增 `build`（`npm --prefix server run build && npm --prefix client run build`）与 `start`（`npm --prefix server run start`）两条脚本。复核三份 `package.json`：`playwright@^1.65.1` 已在 `client/devDependencies`，`server/dependencies` 只含 bcryptjs/better-sqlite3/cors/express/multer/xlsx 运行时依赖，tsx/typescript/@types 与 vite/tailwind 均在 devDependencies，**依赖归类无需改动**。
+- `server/src/index.ts`：新增 `node:fs` / `node:path` import；在 `/api` 404 之后、错误中间件之前挂载 `express.static(clientDist, { index:false })` 与 `app.get('*')` 回退 `index.html`（API 路径仍 404，不回退 HTML）；`clientDist = process.env.REPAIR_CLIENT_DIST || path.join(__dirname,'../../client/dist')`，从编译后的 `server/dist/index.js` 解析，部署到任意目录都成立；缺 `client/dist` 时返回 503 提示先 build；新增 `[static]` 启动日志。
+- 新增 `DEPLOY.md`：环境要求、目录结构、首次部署命令、生产启动输出示例、方案 A（Windows `start-production.bat` + 任务计划程序）/方案 B（PM2）、仅放行 TCP 3000、`ipconfig` + 局域网 IP 访问、robocopy 每日备份数据库/附件/自动快照、更新与故障排查。
+- 临时脚本：`server/verify/verify-r43-account.mjs` 与 `server/verify/verify-r43-prod-e2e.mjs` 均放在固定目录、`verify-` 前缀、强制 `--db` 守卫，跑完自删；截图 `client/e2e/screenshots/r43-prod-cases.png` / `r43-prod-preview.png` 和输出 `client/e2e/r43-prod-e2e-out.txt` 均被 gitignore 排除，未入库。
+
+**实际验证过的命令与结果**：
+
+1. 依赖与构建：只读核对 `client/package.json:21` 的 `playwright` 在 devDependencies；`npm run build` → `server tsc` 无输出（exit 0）、`client tsc --noEmit && vite build` → `✓ 56 modules transformed`、`dist/index.html 0.79 kB`、`dist/assets/index-BNqjsAT5.css 34.90 kB`、`dist/assets/index-Hdc-KPIh.js 350.41 kB`、`✓ built in 3.90s`。`client/dist` 仅 `index.html` + `assets/`（css/js），`server/dist/index.js` 中含 `express.static(...)` 与 `[static]` 日志，产物纯净。
+2. 前置检查：`Get-NetTCPConnection -LocalPort 3000 -State Listen` 无输出（端口空闲），`Test-Path client/node_modules/playwright = True`；3001/5173 上仍有上一轮开发服务，本轮刻意用 3000 验收，未打断。
+3. 生产验收（四段式）：
+   - **测什么**：真正的生产入口 `node server/dist/index.js` 在统一端口 3000 下能否提供前端静态资源、SPA fallback，并支撑登录、案例检索、机型图纸 PDF 预览。
+   - **怎么测**：先 `node server/verify/verify-copy.mjs --db=d:\codebuddy\repairs\server\verify\.db\r43-prod\data\repair.db` 从开发库只读生成副本，再 `node server/verify/verify-r43-prod-e2e.mjs --db=<同上>`。脚本在副本里用 TMPR43ENG 临时工程师账号，spawn 生产入口（cwd=副本目录，env `PORT=3000` + `REPAIR_DB_PATH=<副本>`，显式删除 `REPAIR_VERIFY`），Playwright 真实点击 UI。
+   - **实际输出**（摘自 `client/e2e/r43-prod-e2e-out.txt`）：
+     ```text
+     [migration] {"addedColumns":[]}
+     [seed] {"symptoms":0,"modelAliases":0,"models":0,"customers":0,"cases":0,"skipped":true,"marker":"legacy-skip-2026-11-22T03:46:04.876Z"}
+     [backup] d:\codebuddy\repairs\server\verify\.db\r43-prod\backups\repair-20261127-152459.db
+     [static] {"dir":"D:\\codebuddy\\repairs\\client\\dist","enabled":true}
+     [repair-agent-server] http://localhost:3000
+     STATIC_INDEX_STATUS=200 HAS_ROOT=true
+     STATIC_ASSETS=["/assets/index-Hdc-KPIh.js -> 200 application/javascript; charset=UTF-8 350410B","/assets/index-BNqjsAT5.css -> 200 text/css; charset=UTF-8 34904B"]
+     STATIC_FALLBACK=200 SAME_HTML=true
+     ASSERT_STATIC=true
+     UI_LOGIN_AS=TMPR43ENG HEADER=对话检索
+     ASSERT_UI_LOGIN=true
+     CASES_BASE=31 AFTER_Q=5 HAS_R740=true
+     ASSERT_CASE_SEARCH=true
+     PDF_UPLOAD=0 TYPE=pdf BYTES=590
+     ASSERT_ASSET_LIST=true
+     ASSERT_CHAT_R740_CARD=true
+     PDF_IFRAME_SRC=blob:http://127.0.0.1:3000/a316f9c7-058b-47ee-8e72-a7b8e2fa3
+     PDF_BLOB_TYPE=application/pdf
+     ASSERT_PDF_PREVIEW=true
+     FINAL_CONSOLE_ERRORS=[]
+     COPY_DIR_DELETED=true
+     TMP_ACCOUNT_SCRIPT_DELETED=true
+     TMP_E2E_SCRIPT_DELETED=true
+     ```
+   - **结论**：生产单端口模式下前端静态资源、深链接回退、登录、案例检索、图纸 PDF 预览全部断言为真，页面无 JS 错误。`FINAL_FAILED_REQUESTS` 只有一条 `blob:... net::ERR_ABORTED`，发生在浏览器关闭时浏览器主动中断 blob 读取，非业务失败。
+4. 隔离与清理：`verify-copy.mjs` 从开发库只读 VACUUM INTO；TMP 账号与上传文件只写副本（生产进程 cwd 设为副本目录，`data/uploads/backups` 全落在副本内）；未使用用户账号、未登出、未写开发库；副本目录与两个临时脚本均删除（`COPY_DIR_DELETED=true` 等三条实测为真）。提交前 `git status --short --untracked-files=all` 清单：`M package.json`、`M server/src/index.ts`、`?? DEPLOY.md`（本日志补写后另加 `M PROJECT_LOG.md`），无数据库/附件/密钥/截图入库。
+5. Git 归档与 push：本条记录写完后执行 `git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit` + `git push origin master`，实际哈希与输出随后补记，不提前写结论。
+
+**未验证 / 未执行（如实）**：`DEPLOY.md` 里的 PM2 与 Windows 任务计划程序自启、`netsh`/`ufw` 防火墙放行、robocopy 备份计划任务均只写成操作步骤，**未在本机或另一台内网电脑实际执行**；另一台电脑的真实迁移与局域网访问仍需用户按手册验收；上线前修改默认密码、填写 API Key 是人工动作，本轮未代做。headless 截图中的 PDF 插件区域仍为空白（第 42 轮已确认的 Chromium 限制），以 blob URL + `application/pdf` 类型作为渲染断言；`npm run start` 包装脚本未单独实跑，但 `build` 已验证同一 `--prefix` 机制，生产入口 `node server/dist/index.js` 已实跑。
