@@ -29,6 +29,7 @@ interface Message {
   cacheHits?: number;
   route?: 'dict' | 'llm' | 'cache';
   scoreTrace?: ScoreTrace;
+  intent?: 'chitchat' | 'aggregate' | 'followup';
 }
 
 const SUGGESTIONS = [
@@ -71,6 +72,7 @@ function fromStored(m: StoredChatMessage): Message {
     cacheHits: meta.cacheHits,
     route: meta.route,
     scoreTrace: meta.scoreTrace,
+    intent: meta.intent,
   };
 }
 
@@ -92,6 +94,7 @@ function fromResult(r: ChatAskResult, text: string): Message[] {
       cacheHits: r.cacheHits,
       route: r.route,
       scoreTrace: r.scoreTrace,
+      intent: r.intent,
     },
   ];
 }
@@ -217,6 +220,14 @@ export function ChatPage({
                     <div className="rounded-xl rounded-bl-[3px] border border-line bg-surface px-[17px] py-[13px] shadow-card">
                       <div className="mb-[6px] flex items-center gap-2 font-mono text-[10px] tracking-[.12em] text-accent">
                         <span>{m.error ? 'RETRIEVAL ERROR' : 'MBR KNOWLEDGE BASE'}</span>
+                        {!m.error && m.intent && (
+                          <span
+                            className="rounded bg-[#EFECE5] px-1.5 py-0.5 tracking-normal text-[#5E6670]"
+                            title="技术向对话路由，不占用知识库检索"
+                          >
+                            {m.intent === 'chitchat' ? '对话指引' : m.intent === 'aggregate' ? '条件汇总' : '多轮追问'}
+                          </span>
+                        )}
                         {!m.error && m.source && (
                           <span
                             className={`rounded px-1.5 py-0.5 tracking-normal ${

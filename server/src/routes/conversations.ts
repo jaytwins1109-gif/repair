@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth';
 import { db } from '../db';
 import { ok, fail } from '../response';
 import { chatSearchSmart } from '../services/chat';
+import { chitchatReply, aggregateIntent, followupIntent } from '../services/intents';
 
 const router = Router();
 
@@ -110,7 +111,19 @@ router.post('/chat/sessions/:id/ask', requireAuth, async (req, res) => {
   if (!text) return fail(res, '请输入故障描述');
 
   try {
-    const result = await chatSearchSmart(text, req.user!.emp_no);
+    // ── 技术向对话意图路由（在检索前拦截；不污染 search_cache，不破坏 RAG 红线） ──
+    let result: Awaited<ReturnType<typeof chatSearchSmart>> | null = chitchatReply(text);
+    if (!result) {
+      // 多轮追问：读本会话上一条 assistant 消息的 meta 作为上下文
+      const prev = db
+        .prepare("SELECT meta_json FROM chat_messages WHERE session_id = ? AND role = 'assistant' ORDER BY id DESC LIMIT 1")
+        .get(id) as { meta_json: string } | undefined;
+      const prevMeta = prev ? parseMeta(prev.meta_json) : null;
+      result = await followupIntent(text, prevMeta, req.user!.emp_no);
+    }
+    if (!result) result = await aggregateIntent(text, req.user!.emp_no);
+    if (!result) result = await chatSearchSmart(text, req.user!.emp_no);
+
     const existing = db
       .prepare('SELECT count(*) AS c FROM chat_messages WHERE session_id = ?')
       .get(id) as { c: number };

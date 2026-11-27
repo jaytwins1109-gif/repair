@@ -27,6 +27,7 @@ server/verify/*-out.txt
 # E2E 临时产物（测试输入与运行输出，勿入库）
 client/e2e/*.xlsx
 client/e2e/*-out.txt
+client/e2e/screenshots/
 client/e2e/.tmp/
 
 # ── 环境变量、密钥与本地模型配置 ────────────────────────────

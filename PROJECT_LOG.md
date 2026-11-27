@@ -1024,3 +1024,25 @@ RESTORE_OK=true  RESTORE_EXIT=0
 断言覆盖：cases 增量 = report.cases（30）、sample 增量一致、id=39 与附件4 仍在、api_key 掩码不变、`settings`(8)/`symptom_dict`(14)/`model_alias`(28) 三类配置表行数不变。**完全符合红线**（只写 cases/models/customers、幂等 INSERT OR IGNORE 语义、不碰配置表、不整体覆盖）。回退点备份保留可被 gitignore 忽略；一次性脚本已删。
 
 **未验证 / 未执行（如实）**：第 25 轮删除的 33 条中有 3 条为手动/导入数据、源码不可复原，本次只恢复源码可复原的 30 条（案例库现 31 条 = 1 真 + 30 示例）；未跑 E2E（仅恢复数据）；真实 Excel 打开 CSV 仍为用户人工验收项；本轮无业务代码改动。
+
+---
+
+### 第 38 轮 · 2026-11-27 — 技术向对话路由与多轮上下文
+
+**用户要求**：给 `/api/chat` 增加技术向对话路由：① 拦截闲聊与系统指引（你是谁/怎么上传/怎么审核），不查库直接返回预设回复；② 「查看某客户/机型全部」用 LLM 做自然语言总结（如「为您找到 10 条华为…主要故障集中在接口类和供电类」）；③ 基于上一轮 Top3 案例支持多轮追问，找不到答案必须回复「在刚才检索到的历史案例中，没有提到相关配件的具体型号。」严禁编造；④ 红线：维修结果强依赖数据库 RAG，没匹配到案例仍返回未找到、不凑数。交付要求：Playwright E2E 真实模拟三场景并截图/输出。
+
+**实际改动文件**：
+- 新增 `server/src/services/intents.ts`：意图路由核心——`chitchatReply()`（纯规则 5 条：自我介绍/上传/审核/改密/检索指引，不查库不调模型）、`aggregateIntent()`（规则抽取客户/机型→查 approved 案例→LLM 自然语言总结，0 结果返回 `NO_MATCH_TEXT`，LLM 失败用数据库分类统计模板兜底）、`followupIntent()`（读上一轮 Top3 案例作 context，`chatWithPrompt` 的 system prompt 强制「只用给定案例信息，否则原样回复固定文案」）、`isAggregateIntent()` / `isFollowup()`。常量 `FOLLOWUP_NO_ANSWER` 导出。
+- `server/src/services/llm.ts`：新增导出 `chatWithPrompt(systemPrompt,userPrompt,userEmpNo,options)`，复用 `getActiveConfig/buildBody/callOnce`，`jsonMode=false`、kind='conversation' 单独记日志（不计入 todayCallCount 的 extract 口径），失败返回 `{ok:false,error}` 不抛异常。
+- `server/src/services/chat.ts`：`ChatResult` 加可选 `intent: 'chitchat'|'aggregate'|'followup'`。
+- `server/src/routes/conversations.ts`：`/chat/sessions/:id/ask` 在 `chatSearchSmart` 前按「闲聊→追问（读上一条 assistant meta.cases）→聚合→普通检索」路由，结果仍按既有契约落库（user+assistant 两条、meta_json=完整 ChatResult）。
+- `server/src/routes/chat.ts`：`/api/chat` 兼容入口接入闲聊+聚合（无会话上下文故不含追问）。
+- `client/src/api/types.ts`、`client/src/pages/ChatPage.tsx`：`ChatResult`/`Message` 加 intent 并在助手气泡显示「对话指引/条件汇总/多轮追问」小徽章，fromStored/fromResult 透传。
+- `.gitignore`：新增 `client/e2e/screenshots/` 忽略截图。新增 `client/e2e/r38-e2e.mjs`（Playwright E2E）；一次性 API 实测/清理脚本用完已删。**未改 chat.ts 打分权重/准入/阈值/词典、未碰任何配置表。**
+
+**实际验证过的命令与结果**：
+1. 编译：server `tsc --noEmit` → EXIT=0；client `npm run build` → EXIT=0（54 modules、CSS 34.73KB / JS 289.88KB、3.27s）。
+2. API 实测（真实服务、WX2001 登录、临时会话测后删）：① 「你是谁」→ `intent=chitchat source=rule cases=[] admittedCount=0`；② 「我想看华为的全部案例」→ `intent=aggregate cases=11 admittedCount=11 summary="为您找到11条华为的维修记录，主要故障分类为接口类（4条）和供电类（4条）。"`；③a「R740开机无显示」→ 4 条案例（含 #39 score 展示）；③b「这个主板的电源模块怎么拆？」→ `intent=followup summary="在刚才检索到的历史案例中，没有提到相关配件的具体型号。" cases=3`（上一轮 Top3）。临时会话删除 code=0。
+3. Playwright E2E（`cd client && node e2e/r38-e2e.mjs`）：`LOGIN_ERRORS=[]`；场景1 `ASSERT_1_SELF_INTRO=true`；场景2 回复「为您找到11条华为的维修记录，主要故障为接口类和供电类（各4条）。」`ASSERT_2_AGGREGATE=true`；场景3a 命中 4 条；场景3b 回复「在刚才检索到的历史案例中，没有提到相关配件的具体型号。」`ASSERT_3B_NO_HALLUCINATION=true`；`FINAL_CONSOLE_ERRORS=[]`；`E2E_EXIT=0`。四张截图 `client/e2e/screenshots/r38-scene{1-chitchat,2-aggregate,3a-search,3b-followup}.png` 已生成（被 gitignore 忽略）；截图目视确认场景3b 气泡带「多轮追问」徽章、回答为固定文案、下方展示 3 条上下文案例卡片。E2E 临时会话（标题「你是谁」id=3）已精确删除，剩余会话 0。
+
+**未验证 / 未执行（如实）**：LLM 总结为真实 DeepSeek 调用（已实测返回自然语言），若密钥失效时聚合用模板兜底、追问用「模型暂时不可用」文案兜底——兜底分支未单独制造 401 实测；真实 Excel 打开 CSV 仍为用户人工验收项；本轮未跑全量旧验证脚本（仅编译 + 新功能 API/E2E 实测）。意图拦截为纯规则关键词，未覆盖所有中文问法（如「请问你是哪位」不在自我介绍正则内，会走普通检索）。

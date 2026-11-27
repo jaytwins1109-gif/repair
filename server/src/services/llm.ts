@@ -578,3 +578,48 @@ export async function extractKeywordsWithLlm(text: string, userEmpNo: string): P
   });
   return { ok: false, reason: errorMessage };
 }
+
+/**
+ * 技术向对话：给一段自定义 system + user prompt，拿自然语言文本回复。
+ * 复用 getActiveConfig / buildBody / callOnce，但：
+ * - 不强制 JSON 输出（jsonMode=false），max_tokens 可覆盖；
+ * - kind='conversation' 单独记日志，不计入 todayCallCount（只统计 extract），不改变既有每日上限口径；
+ * - 失败不抛异常，返回 {ok:false,error}，调用方据此决定降级文案。
+ * 修故障结论仍由数据库检索决定；本函数只做「把已有案例整理成自然语言」或「基于给定上下文回答」。
+ */
+export async function chatWithPrompt(
+  systemPrompt: string,
+  userPrompt: string,
+  userEmpNo: string,
+  options: { maxTokens?: number } = {}
+): Promise<{ ok: boolean; content: string; error?: string }> {
+  const config = getActiveConfig();
+  if (!config || !config.api_key) return { ok: false, content: '', error: '未配置可用的大模型密钥' };
+  const started = Date.now();
+  const body = buildBody(
+    config,
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    { jsonMode: false, maxTokens: options.maxTokens ?? 300 }
+  );
+  let last = await callOnce(config, body);
+  if (!last.ok && /空白|空|截断/.test(last.error)) last = await callOnce(config, body);
+  const promptChars = systemPrompt.length + userPrompt.length;
+  logCall({
+    config_id: config.id,
+    platform: config.platform,
+    model: config.model,
+    kind: 'conversation',
+    success: last.ok,
+    error: last.error || undefined,
+    latency_ms: Date.now() - started,
+    prompt_chars: promptChars,
+    completion_chars: last.content.length,
+    cacheHit: last.cacheHit,
+    cacheMiss: last.cacheMiss,
+    user_emp_no: userEmpNo,
+  });
+  return last.ok ? { ok: true, content: last.content.trim() } : { ok: false, content: '', error: last.error };
+}

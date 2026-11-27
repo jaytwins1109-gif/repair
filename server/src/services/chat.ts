@@ -61,6 +61,8 @@ export interface ChatResult {
   route?: 'dict' | 'llm' | 'cache';
   /** 打分过程（取首条案例），让分数可手动复算 */
   scoreTrace?: ScoreTrace;
+  /** 意图路由标记：chitchat=闲聊/指引、aggregate=条件聚合、followup=多轮追问；普通检索不设置 */
+  intent?: 'chitchat' | 'aggregate' | 'followup';
 }
 
 const NO_MATCH_TEXT = '知识库中未找到相似案例，建议上传现场记录。';
