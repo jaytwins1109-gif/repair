@@ -37,19 +37,51 @@ function toScored(rows: CaseRow[]): ScoredCase[] {
   return rows.map((r) => ({ ...r, score: 100, similarity: 100, matched: [] as string[] }));
 }
 
-// ───────────────────────────── 1) 闲聊 / 系统指引 ─────────────────────────────
+// ───────────────────────────── 1) 闲聊 / 系统指引（Level 1 本地绝对拦截） ─────────────────────────────
 
+const IDENTITY_ANSWER =
+  '我是服务器主板维修专家助手。请向我描述故障现象，我会基于知识库中的真实案例，按「故障现象 -> 诊断过程 -> 解决方案 -> 涉及配件」为您提供排查方案；案例中未提及的信息，我会明确说明，绝不编造。';
+const CAPABILITY_ANSWER =
+  '我是服务器主板维修专家助手，专业处理服务器主板故障排查。您可以：1) 描述故障现象（机型+客户+现象）检索真实维修案例；2) 查看某客户/机型的全部维修记录；3) 追问上一轮案例中的诊断与配件细节。所有结论严格基于知识库案例，不会编造。';
+
+/**
+ * 绝对清洗：NFKC 先把全角标点/字母转半角，再去掉所有标点、符号、控制符与空白。
+ * 例：「你是？？？」→「你是」，「请问，你能干点啥！」→「请问你能干点啥」。
+ * 只在意图匹配前使用，不改写原始用户消息与检索文本。
+ */
+export function normalizeIntentText(text: string): string {
+  return String(text || '')
+    .normalize('NFKC')
+    .replace(/[\p{P}\p{S}\p{C}\s]/gu, '')
+    .toLowerCase();
+}
+
+/** 白名单词条全部先走同一套清洗，保证「你是？？？」也能命中「你是」 */
+const CHITCHAT_WHITELIST: Array<{ phrase: string; answer: string }> = [
+  { phrase: '你是谁', answer: IDENTITY_ANSWER },
+  { phrase: '你是', answer: IDENTITY_ANSWER },
+  { phrase: '你叫什么', answer: IDENTITY_ANSWER },
+  { phrase: '你叫什么名字', answer: IDENTITY_ANSWER },
+  { phrase: '介绍一下你自己', answer: IDENTITY_ANSWER },
+  { phrase: '自我介绍', answer: IDENTITY_ANSWER },
+  { phrase: '你好', answer: IDENTITY_ANSWER },
+  { phrase: '嗨', answer: IDENTITY_ANSWER },
+  { phrase: 'hello', answer: IDENTITY_ANSWER },
+  { phrase: 'hi', answer: IDENTITY_ANSWER },
+  { phrase: '你能干嘛', answer: CAPABILITY_ANSWER },
+  { phrase: '你能干点啥', answer: CAPABILITY_ANSWER },
+  { phrase: '你能干什么', answer: CAPABILITY_ANSWER },
+  { phrase: '你能做什么', answer: CAPABILITY_ANSWER },
+  { phrase: '你可以做什么', answer: CAPABILITY_ANSWER },
+  { phrase: '你能帮我什么', answer: CAPABILITY_ANSWER },
+  { phrase: '有什么功能', answer: CAPABILITY_ANSWER },
+  { phrase: '怎么用', answer: CAPABILITY_ANSWER },
+  { phrase: '怎么使用', answer: CAPABILITY_ANSWER },
+  { phrase: '如何使用', answer: CAPABILITY_ANSWER },
+].map((item) => ({ phrase: normalizeIntentText(item.phrase), answer: item.answer }));
+
+/** 其余系统指引仍用规则匹配；正则一律跑在清洗后的文本上，不再写标点字符 */
 const CHITCHAT_RULES: Array<{ test: RegExp; answer: string }> = [
-  {
-    test: /^((你是谁|你叫什么|介绍一下你自己|自我介绍|hello|hi|你好|嗨)[？?！!。\s]*)$/i,
-    answer:
-      '我是服务器主板维修专家助手。请向我描述故障现象，我会基于知识库中的真实案例，按「故障现象 -> 诊断过程 -> 解决方案 -> 涉及配件」为您提供排查方案；案例中未提及的信息，我会明确说明，绝不编造。',
-  },
-  {
-    test: /^(你能干什么|你能做什么|你可以做什么|你能帮我什么|有什么功能|怎么用)[？?！!。\s]*$/i,
-    answer:
-      '我是服务器主板维修专家助手，专业处理服务器主板故障排查。您可以：1) 描述故障现象（机型+客户+现象）检索真实维修案例；2) 查看某客户/机型的全部维修记录；3) 追问上一轮案例中的诊断与配件细节。所有结论严格基于知识库案例，不会编造。',
-  },
   {
     test: /(怎么|如何|在哪|怎样).*(上传|导入|提交).*(案例|记录)/,
     answer:
@@ -74,7 +106,11 @@ const CHITCHAT_RULES: Array<{ test: RegExp; answer: string }> = [
 
 /** 命中则返回预设回复，不查库、不调用模型 */
 export function chitchatReply(text: string): ChatResult | null {
-  const clean = String(text || '').trim();
+  const clean = normalizeIntentText(text);
+  if (!clean) return null;
+  for (const item of CHITCHAT_WHITELIST) {
+    if (item.phrase && clean.includes(item.phrase)) return emptyResult(item.answer, 'chitchat');
+  }
   for (const rule of CHITCHAT_RULES) {
     if (rule.test.test(clean)) return emptyResult(rule.answer, 'chitchat');
   }

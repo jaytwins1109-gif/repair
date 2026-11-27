@@ -450,10 +450,13 @@ export interface ExtractedKeywords {
 export interface ExtractOutcome {
   ok: boolean;
   keywords?: ExtractedKeywords;
+  /** 第 49 轮：LLM 意图合流。search=查故障，chitchat=闲聊/系统用法；调用失败时缺省为 search */
+  intent?: 'search' | 'chitchat';
   reason?: string;
 }
 
 const JSON_FORMAT_EXAMPLE = JSON.stringify({
+  intent: 'search',
   model: '联想 SR650',
   customer: '华为',
   symptoms: ['开机无显示', '风扇满转'],
@@ -466,14 +469,15 @@ const JSON_FORMAT_EXAMPLE = JSON.stringify({
  * 严禁在此加入时间、工号、机型列表、标准词表等任何动态内容——那些一律放到 user 消息。
  */
 const FIXED_SYSTEM_PROMPT =
-  '你是服务器主板维修知识库的检索条件抽取器（JSON extractor）。' +
+  '你是服务器主板维修知识库的意图识别与检索条件抽取器（JSON extractor）。' +
   '你必须只输出一个合法的 json 对象，不要输出 Markdown、解释文字或案例编号。' +
-  '输出 json 必须严格包含以下四个字段：' +
+  '输出 json 必须严格包含以下五个字段：' +
+  'intent（只能是 "search" 或 "chitchat"：查故障、查案例、描述机型/客户/现象一律填 "search"；闲聊、问你是谁、问系统怎么用、问与维修无关的问题一律填 "chitchat"）、' +
   'model（机型名称字符串）、customer（客户名称字符串）、symptoms（故障现象词元数组，需把原话拆成多个独立词，不要原样照抄整句）、' +
   'expanded（关键词扩展数组，包含该现象的同义说法、相关部件词、可能的故障分类词）、' +
   'expandedByTerm（json 对象，键为 symptoms 里的每个现象词，值为该词专属的扩展候选数组；每个未覆盖的现象词都要有对应条目）。' +
   `输出 json 示例：${JSON_FORMAT_EXAMPLE}。` +
-  '无法判断的字段用空字符串或空数组。不要编造案例编号或处理结论。';
+  '无法判断的字段用空字符串或空数组；intent 无法判断时填 "search"。不要编造案例编号或处理结论。';
 
 function buildExtractUserMessage(
   text: string,
@@ -603,7 +607,9 @@ export async function extractKeywordsWithLlm(text: string, userEmpNo: string): P
       cacheMiss,
       user_emp_no: userEmpNo,
     });
-    return { ok: true, keywords };
+    // 意图缺省按 search 处理，保证模型漏填/填错时仍走最保守的本地检索链路
+    const intent: 'search' | 'chitchat' = data.intent === 'chitchat' ? 'chitchat' : 'search';
+    return { ok: true, keywords, intent };
   }
 
   if (!errorMessage) errorMessage = '模型输出无法解析为 JSON';

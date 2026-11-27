@@ -30,7 +30,7 @@ interface Message {
   cacheHits?: number;
   route?: 'dict' | 'llm' | 'cache';
   scoreTrace?: ScoreTrace;
-  intent?: 'chitchat' | 'aggregate' | 'followup';
+  intent?: 'chitchat' | 'search' | 'aggregate' | 'followup';
 }
 
 const SUGGESTIONS = [
@@ -227,7 +227,13 @@ export function ChatPage({
                             className="rounded bg-[#EFECE5] px-1.5 py-0.5 tracking-normal text-[#5E6670]"
                             title="技术向对话路由，不占用知识库检索"
                           >
-                            {m.intent === 'chitchat' ? '对话指引' : m.intent === 'aggregate' ? '条件汇总' : '多轮追问'}
+                            {m.intent === 'chitchat'
+                              ? '对话指引'
+                              : m.intent === 'search'
+                                ? '故障检索'
+                                : m.intent === 'aggregate'
+                                  ? '条件汇总'
+                                  : '多轮追问'}
                           </span>
                         )}
                         {!m.error && m.source && (

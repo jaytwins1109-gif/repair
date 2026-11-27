@@ -209,8 +209,8 @@ export interface ChatResult {
   cacheHits?: number;
   route?: 'dict' | 'llm' | 'cache';
   scoreTrace?: ScoreTrace;
-  /** 意图路由：chitchat=闲聊/指引、aggregate=条件聚合、followup=多轮追问 */
-  intent?: 'chitchat' | 'aggregate' | 'followup';
+  /** 意图路由：chitchat=闲聊/指引、search=故障检索、aggregate=条件聚合、followup=多轮追问 */
+  intent?: 'chitchat' | 'search' | 'aggregate' | 'followup';
 }
 
 /** 会话表：所属用户、标题、创建时间、最后更新时间 */

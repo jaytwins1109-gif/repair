@@ -74,6 +74,8 @@
 - **生产部署（第 43 轮）**：根脚本新增 `build`（后端 tsc + 前端 vite build）与 `start`（`node server/dist/index.js`）；同一 Express 进程在 3000 端口同时提供 API 与 `client/dist` 静态资源，并支持 React 深链接回退 `index.html`；新增面向运维的 `DEPLOY.md`（环境、目录、PM2/bat 常驻、单端口防火墙、备份策略）。生产模式已用 Playwright 实测登录/案例检索/图纸预览。
 - **README 同步生产入口（第 44 轮）**：README 顶部新增生产模式局域网说明（单端口 3000、只放行 3000），快速开始改为「开发模式 + 生产部署」双入口并指向 `DEPLOY.md`，验证章节补生产 E2E 证据指引，交接说明新增部署手册入口。
 - **技术知识库（第 45 轮）**：新增独立知识库模块——`knowledge_docs` / `knowledge_categories` 两张表与 5 个固定分类，doc/docx/xls/xlsx/ppt/pptx/pdf 上传（50MB）按 magic bytes 校验，四个带鉴权接口（列表/上传/取流/删除）；侧边栏新增「技术知识库」，左侧分类目录 + 右侧文档表格、标题/文件名搜索、上传弹窗、PDF iframe 预览与 Office 下载。只检索标题/文件名，不做全文检索。
+- **本地环境核查与安装（第 46/47 轮）**：第 46 轮只读确认当前副本无 `node_modules` / `dist` / `.git`、PATH 无 `node` / `npm` / `git`；第 47 轮已手工完成 Node 24.14.0 + npm 11.9.0 落盘并写入用户 PATH，Git 2.55.0 从本机 PortableGit 复制到 `C:\Users\卢\AppData\Local\Programs\Git` 并写入用户 PATH；三处依赖装齐（server 用 `--ignore-scripts` 绕过不必要的 node-gyp，`better-sqlite3` 自带 win32-x64 预编译二进制实测可用），前后端 `npm run build` 均通过。本项目不要求 CodeBuddy/VS Code 插件，只有跑 E2E 才需 `npx playwright install chromium`。
+- **模型配置弹窗限高与滚动（第 48 轮）**：`ModelsAdminPage.tsx` 弹窗改为 `max-h-[calc(100vh-2rem)]` 纵向 flex，标题与取消/保存固定，中间表单 `min-h-0 flex-1 overflow-y-auto overscroll-contain`，内容超高时出现内部滚动条而不再顶出视口；编译通过，构建 CSS 已确认包含对应规则。浏览器人工观感未由 AI 点测。
 
 ### 启动命令
 
@@ -163,6 +165,8 @@ $env:PORT = '3000'; npm run start   # CMD 用 set PORT=3000 && npm run start
 45. **第 43 轮状态**：生产单端口模式已在本机用真正的 `node server/dist/index.js` + Playwright 验证通过（静态资源 200、SPA fallback、登录、案例检索、R740 图纸 PDF 预览）；`DEPLOY.md` 已写好，但 PM2/任务计划程序自启、防火墙放行与备份计划任务**只写成操作手册，未在另一台内网电脑实际执行**，目标机器迁移仍需用户按手册做一次验收；默认密码修改与 API Key 填写属上线前人工动作。
 46. **第 44 轮状态**：README 已同步生产单端口入口并指向 `DEPLOY.md`，与第 43 轮代码/文档不再脱节；目标机器实际迁移、自启与防火墙配置仍按第 45 项待人工执行。
 47. **第 45 轮状态**：技术知识库四个接口与 UI 已用独立库 + TMP 账号在生产单端口下 E2E 验证通过；docx 用最小 ZIP（含 `word/`）验证 magic bytes 识别，未用真实 Word 文档人工打开。Word/Excel/PPT 在线预览仍待未来接入微软/WPS API；全文检索按红线未做。
+48. **已解决（第 47 轮）**：Node 24.14.0 / npm 11.9.0 与 Git 2.55.0 已安装并写入用户 PATH（需重开终端或 IDE 才继承新 PATH）；三处依赖已装齐、前后端编译通过。仍待人工确认：当前副本无 `.git`，首次提交前需按规则贴出 `git status --short --untracked-files=all` 清单等用户点头；`npm run setup` 原脚本在 server 步骤会触发不必要的 `node-gyp rebuild` 并因缺 Python/MSVC 失败，本轮未改脚本，新机可用 `npm --prefix server install --ignore-scripts` 与 `npm --prefix client install --ignore-scripts` 代替。
+49. **第 48 轮状态**：模型配置弹窗已限高并加内部滚动条，代码层与编译/CSS 产物验证通过，浏览器人工点测未做。当前副本已 `git init`（96 个未跟踪文件），首次 commit 清单与 `.gitignore` 忽略核对已贴用户，按规则**未 add / 未 commit / 未 push**，等确认后再归档。
 
 ---
 
@@ -1275,3 +1279,78 @@ RESTORE_OK=true  RESTORE_EXIT=0
 5. Git 归档与 push：`git status --short --untracked-files=all` 清单为 `M PROJECT_LOG.md`、`M client/src/App.tsx`、`M client/src/api/index.ts`、`M client/src/api/types.ts`、`M client/src/navigation.ts`、`M server/src/db/index.ts`、`M server/src/index.ts`、`M server/src/middleware/upload.ts`、`?? client/src/pages/KnowledgePage.tsx`、`?? server/src/routes/knowledgeDocs.ts`、`?? server/src/services/knowledgeDocs.ts`（无敏感文件）；`git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "新增技术知识库：分类/上传/鉴权取流与前端页面"` → `7bfb175`（11 files / 784 insertions / 2 deletions，含 3 个新文件）；`git push origin master` → `To github.com:jaytwins1109-gif/repair.git / ba28ebd..7bfb175  master -> master`，`PUSH_EXIT=0`，推送后 `## master...origin/master` 干净。本条补记随后单独归档推送。
 
 **未验证 / 未执行（如实）**：docx 用纯 JS 构造的最小 ZIP（含 `word/` 路径）验证识别，未拿真实 Word 文件人工打开；Word/Excel/PPT 在线预览按约定只提供下载，微软/WPS 在线预览 API 未接入；全文检索按红线未做；未对 xls/xlsx/ppt/pptx/doc 五种格式逐一上传实测（代码路径与 docx 同属 ZIP/OLE2 判定）；50MB 上限只设了配置、未造 50MB 文件实测。
+
+---
+
+### 第 46 轮 · 2026-11-27 — 检查本地需要安装什么插件（只读核查）
+
+**用户要求**：项目位置改为 `D:\codebuddy\repair-master\repair-master`，检查本地需要安装什么插件。
+
+**实际动作**：只读核查三份 `package.json`、`README.md`、`DEPLOY.md`、`start.bat` / `start.sh`、常见安装目录与 PATH；未在 `package.json` 中找到任何 IDE 插件依赖，未新增任何文件。本轮仅修改 `PROJECT_LOG.md` 的摘要、待办清单与本条记录，业务代码零改动。
+
+**实际验证过的命令与结果（四段式）**：
+1. **测什么**：本机是否具备运行该项目所需的 Node/npm、项目依赖、Git、浏览器与 E2E 浏览器内核。
+   **怎么测**：`node --version; npm --version; git --version`；`Test-Path` 检查 `node_modules` / `server\node_modules` / `client\node_modules` / `dist` / `.git`；`Get-ChildItem` 检查 `C:\Program Files\nodejs`、`C:\Program Files\Git`、`C:\Users\卢\AppData\Local\Programs`、`D:\codebuddy`；`Get-ItemProperty` 查卸载注册表；`Get-ChildItem -Recurse` 查 `D:\下载\CodeBuddy CN` 与 `D:\下载\WorkBuddy` 内自带 node/npm/git。
+   **实际输出**：`node` / `npm` / `git` 均报 CommandNotFoundException；`node_modules=False`、`server\node_modules=False`、`client\node_modules=False`、`client\dist=False`、`server\dist=False`、`.git=False`；`C:\Program Files\nodejs=False`、`C:\Program Files\Git=False`；注册表无 Node/Git 安装记录；`D:\下载\CodeBuddy CN` 内无 node.exe；`D:\下载\WorkBuddy\resources\vendor\PortableGit\cmd\git.exe` 存在但未入 PATH；`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe=True`，`C:\Users\卢\AppData\Local\ms-playwright=False`。
+   **结论**：本机需装 Node.js 24.x（npm 随附）并执行 `npm run setup` 安装三处依赖；Git 仅归档/拉取需要（可用 PortableGit 绝对路径，但未入 PATH）；跑 E2E 才需 `npx playwright install chromium`；日常浏览用已装 Edge 即可；IDE 无需插件。
+2. **测什么**：项目是否声明了必须安装的编辑器插件。
+   **怎么测**：全仓 `search_file extensions.json`；读取根 / server / client 三份 `package.json` 与 README/DEPLOY 环境表。
+   **实际输出**：`extensions.json` 0 命中，`.vscode` 目录不存在；根 devDependencies 仅 `concurrently@^9.1.2`，server 运行时依赖 `bcryptjs/better-sqlite3/cors/express/multer/xlsx`，client 运行时依赖 `react/react-dom/react-zoom-pan-pinch`，其余 devDependencies 为 `tsx/typescript/@types/vite/tailwind/playwright` 等；README:25 与 DEPLOY.md:16 均要求 Node.js 24（最低 20），DEPLOY.md:19 要求 Chrome/Edge 1080p。
+   **结论**：无 CodeBuddy/VS Code 插件硬性要求；需要的是运行时与 npm 依赖，不是 IDE 插件。
+
+**未验证 / 未执行（如实）**：未安装任何软件、未执行 `npm install` / `npm run setup` / `npm run build`，因此「装好后能编译」本轮未验证（沿用第 45 轮在旧副本上的编译证据）；当前副本无 `.git`，无法按第 16 条执行 git 归档；未使用用户账号、未登出、未触碰任何数据库或业务数据。
+
+---
+
+### 第 47 轮 · 2026-11-27 — 新机安装 Node / Git / 项目依赖并编译
+
+**用户要求**：本地是新机，需要安装 git、node 等，开始操作。中途用户反馈「怎么这么久」，已把长命令拆成短步骤并说明进度；一条「client install + build」串联命令被用户取消，随后分三步补齐。
+
+**实际动作**：安装 Node 24.14.0 + npm 11.9.0、Git 2.55.0，写入用户级 PATH；安装根目录 / server / client 三处 npm 依赖；完成前后端编译；本轮唯一文件改动是 `PROJECT_LOG.md`，业务代码零改动。未建 `.git`、未提交。
+
+**实际验证过的命令与结果（四段式）**：
+1. **测什么**：新机能否装到 Node 24 与 Git，并让 `node` / `npm` / `git` 在 PATH 中可用。
+   **怎么测**：`install_binary(node, 24.14.0)`；`winget install --id Git.Git -e --scope user ...`；失败后复制 `D:\下载\WorkBuddy\resources\vendor\PortableGit` 到 `C:\Users\卢\AppData\Local\Programs\Git`，`[Environment]::SetEnvironmentVariable('Path', ..., 'User')` 写入用户 PATH；新 shell 注入用户 PATH 后跑 `node -v` / `npm -v` / `git --version`。
+   **实际输出**：`install_binary` 两次均报 `EPERM: rename ...24.14.0.installing... -> ...24.14.0.installing.17112`；winget 报 `InternetOpenUrl() failed. 0x80072efd`。手工把已解压的 `node-v24.14.0-win-x64` 移到 `C:\Users\卢\.workbuddy\binaries\node\versions\24.14.0`、写 `.extracted` 与 `current` 标记后：`NODE=v24.14.0`、`NPM=11.9.0`、`GIT=git version 2.55.0.windows.3`。
+   **结论**：Node/npm/Git 均可用；PATH 改动需重开终端或 IDE 才能被其它进程继承（本轮命令已显式注入用户 PATH 验证）。
+2. **测什么**：`npm run setup` 能否装齐三处依赖。
+   **怎么测**：根目录 `npm run setup`；失败后 `npm --prefix server install --ignore-scripts`、`npm --prefix client install --ignore-scripts`；`node -e "const D=require('better-sqlite3'); ..."` 验证原生模块。
+   **实际输出**：`npm run setup` 先 `added 25 packages`，随后 server 步骤 `npm error code 1`，`node-gyp rebuild` 因 `Could not find any Python installation to use` 失败（本机 Python311 路径不存在、无 Visual Studio）；`npm --prefix server install --ignore-scripts` → `added 106 packages`；`prebuilds/win32-x64.node` 存在，`SQLITE_OK 1`；client 安装被用户取消一次后重跑 `changed 20 packages, and audited 139 packages in 2m`、0 vulnerabilities。
+   **结论**：依赖已装齐；`better-sqlite3@13.2.0` 自带预编译二进制，无需 node-gyp；根 `setup` 脚本在本机会因缺 Python/MSVC 失败，本轮未改脚本，改用两条 `--ignore-scripts` 命令替代。
+3. **测什么**：装齐后前后端能否编译。
+   **怎么测**：先 `npm --prefix server run build`，再 `npm --prefix client run build`（拆开执行，避免长命令）。
+   **实际输出**：server `tsc` 无错误、`SERVER_BUILD_EXIT=0`；client 首次因安装被取消缺 `typescript` 报 `'tsc' is not recognized`，补齐后 `✓ 57 modules transformed`、`dist/index.html 0.78 kB`、`CSS 35.19 kB`、`JS 360.83 kB`、`✓ built in 19.39s`、`CLIENT_BUILD_EXIT=0`。
+   **结论**：前后端编译均通过；中间一次 `tsc` 失败是依赖未装完，补齐后已消除。
+
+**未验证 / 未执行（如实）**：未执行 `npm run setup` 成功路径（原脚本在本机失败，改用两条 `--ignore-scripts` 命令）；未安装 Playwright Chromium（E2E 时才需 `npx playwright install chromium`）；未启动服务或做浏览器点测；当前副本无 `.git`，本轮未 `git init`、未 add/commit/push，首次提交需先按规则贴清单等用户确认；未使用用户账号、未登出、未触碰任何数据库或业务数据。
+
+---
+
+### 第 48 轮 · 2026-11-27 — 模型配置弹窗限高并加内部滚动条
+
+**用户要求**：截图反馈「编辑模型配置」弹窗过长，要求改成适应 100% 视口大小或增加滚动条。
+
+**实际改动文件**：
+- `client/src/pages/ModelsAdminPage.tsx`：弹窗容器由 `grid place-items-center` + 固定 `p-6` 改为 `flex` 纵向布局并加 `max-h-[calc(100vh-2rem)]`；标题栏 `shrink-0`、表单区 `min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-1`、按钮栏 `shrink-0` 固定底部；API Key 自动填充防护及其它字段逻辑未改。
+- `PROJECT_LOG.md`：当前状态摘要新增本轮条目、未解决问题新增第 49 项、追加本条。
+- **未改**：后端、四类配置表、业务数据、其它页面与依赖。
+
+**关键实现思路与原因**：用户给的两种方案一起落地——弹窗最高不超过 `100vh - 2rem`，正好落在 `p-4` 遮罩内；标题与保存/取消用 `shrink-0` 固定，避免长表单把按钮顶出屏幕；表单区用 `min-h-0` 解除 flex 子项默认最小高度限制，`flex-1` 吃掉剩余空间，`overflow-y-auto` 在内容超高时才出现滚动条，`overscroll-contain` 防止滚动穿透到背景页。短内容时无滚动条、长内容时按钮始终可见，67% 浏览器缩放下同样按 CSS 视口计算。
+
+**实际验证过的命令与结果（四段式）**：
+1. **测什么**：构建产物是否包含限高/滚动规则，JSX 是否为固定头尾 + 可滚中间区。
+   **怎么测**：`read_file` 复核 `ModelsAdminPage.tsx:398-560`；`npm run build` 后用 PowerShell 正则在 `client/dist/assets/index-CqehPG49.css` 中查 `calc(100vh` 与 `overscroll-behavior`。
+   **实际输出**：`max-h-\[calc\(100vh-2rem\)\]{max-height:calc(100vh - 2rem)}.min-h-0{min-height:0px}`；`.overflow-y-auto{overflow-y:auto}`；`.overscroll-contain{overscroll-behavior:contain}`；JSX 表单容器为 `grid min-h-0 flex-1 gap-4 overflow-y-auto overscroll-contain px-6 pb-1`。
+   **结论**：CSS 规则与结构一致，Tailwind 已正确生成 `calc(100vh - 2rem)`，不是无空格的无效表达式。
+2. **测什么**：前后端全量编译是否通过。
+   **怎么测**：`Set-Location 'd:\codebuddy\repair-master'; npm run build`。
+   **实际输出**：server `tsc` 无错误；client `tsc --noEmit && vite build` → `✓ 57 modules transformed`、`dist/index.html 0.78 kB`、`assets/index-CqehPG49.css 35.33 kB`、`assets/index-CbO4ZQe_.js 360.99 kB`、`✓ built in 2.31s`，`exitCode=0`；`read_lints` 对 `ModelsAdminPage.tsx` 0 错误。首次命令误用 `cd /d`（PowerShell 报错）但后续构建仍成功，已用 `Set-Location` 干净重跑并以重跑结果为准。
+   **结论**：通过，改动可立即运行。
+3. **测什么**：当前副本是否满足归档前置条件。
+   **怎么测**：`git -C d:\codebuddy\repair-master rev-parse --is-inside-work-tree` 返回 `fatal: not a git repository` → 执行 `git init -q` → `git status --short --untracked-files=all` → `git check-ignore -v` 十条敏感路径。
+   **实际输出**：`STATUS_LINES=96`，96 项全为 `??`；`check-ignore` 全部命中：`server/data/`(.gitignore:8)、`uploads/`(17)、`backups/`(24)、`*.db`(9)、`.env`(37)、`server/verify/.db/`(27)、`dist/`(3)、`node_modules/`(2)。
+   **结论**：数据库、附件、备份、密钥、副本库、构建产物与依赖均未进入待提交清单；按首次 commit 需用户确认的规则，本轮**未 `git add` / 未 commit / 未 push**。
+
+**未验证 / 未执行（如实）**：浏览器人工点测未做（未在云电脑浏览器打开模型管理页点「编辑」并拖动滚动条确认）；首次 git commit 未执行、未 push；未启动服务、未使用用户账号、未触碰数据库与四类配置表；截图中的 67% 缩放仅作为布局参照，实际观感待用户确认。
+
+**遗留问题 / 需人工确认**：见未解决问题第 49 项；请确认 96 项首次提交清单后可归档。

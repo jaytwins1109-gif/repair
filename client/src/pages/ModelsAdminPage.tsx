@@ -396,18 +396,18 @@ export function ModelsAdminPage() {
       </div>
 
       {form && (
-        <div className="fixed inset-0 z-[70] grid place-items-center bg-black/45 p-4" onClick={() => setForm(null)}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4" onClick={() => setForm(null)}>
           <div
-            className="w-full max-w-[560px] rounded-xl border border-line bg-surface p-6 shadow-card"
+            className="flex max-h-[calc(100vh-2rem)] w-full max-w-[560px] flex-col rounded-xl border border-line bg-surface shadow-card"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-5 flex items-center justify-between">
+            <div className="flex shrink-0 items-center justify-between px-6 pb-4 pt-5">
               <h2 className="m-0 font-display text-[18px] font-bold">{editingId === null ? '新增模型配置' : '编辑模型配置'}</h2>
               <button type="button" onClick={() => setForm(null)} className="text-muted hover:text-ink">
                 <Icon name="close" className="h-5 w-5" />
               </button>
             </div>
-            <div className="grid gap-4">
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto overscroll-contain px-6 pb-1">
               <Field label="配置名称">
                 <input
                   value={form.name}
@@ -539,7 +539,7 @@ export function ModelsAdminPage() {
                 启用该配置
               </label>
             </div>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="flex shrink-0 items-center justify-end gap-3 px-6 pb-5 pt-4">
               <button
                 type="button"
                 onClick={() => setForm(null)}

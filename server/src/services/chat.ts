@@ -1,7 +1,7 @@
 import { db, type CaseRow } from '../db';
 import { extractKeywordsWithLlm } from './llm';
 import { buildTokens, canonicalizeModel, normalizeSymptoms, type MatchToken } from './dictionary';
-import { getCached, setCached, normalizeQuery, shouldSkipLlm, recordRoute } from './cache';
+import { getCached, setCached, normalizeQuery, recordRoute } from './cache';
 
 export interface ChatKeywords {
   model: string;
@@ -61,11 +61,14 @@ export interface ChatResult {
   route?: 'dict' | 'llm' | 'cache';
   /** 打分过程（取首条案例），让分数可手动复算 */
   scoreTrace?: ScoreTrace;
-  /** 意图路由标记：chitchat=闲聊/指引、aggregate=条件聚合、followup=多轮追问；普通检索不设置 */
-  intent?: 'chitchat' | 'aggregate' | 'followup';
+  /** 意图路由标记：chitchat=闲聊/指引、search=故障检索、aggregate=条件聚合、followup=多轮追问 */
+  intent?: 'chitchat' | 'search' | 'aggregate' | 'followup';
 }
 
 const NO_MATCH_TEXT = '知识库中未找到相似案例，建议上传现场记录。';
+/** LLM 判定为 chitchat 时使用的统一预设文案：不查库、不编造，也不暴露模型内部 JSON */
+const LLM_CHITCHAT_ANSWER =
+  '我是服务器主板维修专家助手，专业处理服务器主板故障排查。您可以描述故障现象（机型+客户+现象）检索真实维修案例，也可以查看某客户/机型的全部维修记录或追问上一轮案例细节。与维修无关的问题我无法回答，案例中未提及的信息也绝不会编造。';
 
 /**
  * 字段权重（命中一个词元即得该字段满权重，不做模糊比例加分）：
@@ -371,74 +374,68 @@ function resultFromCache(queryNorm: string, entry: NonNullable<ReturnType<typeof
 export async function chatSearchSmart(rawText: string, userEmpNo: string): Promise<ChatResult> {
   const text = String(rawText || '').trim();
   recordRoute('total');
-
-  // 1) 本地查询缓存优先：命中直接返回，完全不调用模型
   const queryNorm = normalizeQuery(text);
-  const cached = getCached(queryNorm);
-  if (cached) return resultFromCache(queryNorm, cached);
 
   const dbEnabled =
     (db.prepare("SELECT value FROM settings WHERE key = 'llm_enabled'").get() as { value: string } | undefined)
       ?.value === '1';
 
-  // 2) 规则抽取 + 词典覆盖判断（前置拦截依据）
-  const ruleKeywords = extractKeywords(text);
-  const builtForCheck = buildTokens({
-    model: ruleKeywords.model,
-    customer: ruleKeywords.customer,
-    symptoms: ruleKeywords.symptoms,
-  });
-  const uncovered = builtForCheck.tokens
-    .filter((t) => t.field === 'extra' && t.source === 'raw')
-    .map((t) => t.text);
-  const hasSymptomWords = builtForCheck.tokens.some((t) => t.field === 'symptom' || t.field === 'extra');
-
-  if (!dbEnabled || shouldSkipLlm({ uncoveredSymptoms: uncovered, hasSymptomWords })) {
-    recordRoute('skip');
-    const result = chatSearch(text, {
-      source: 'rule',
-      route: 'dict',
-      fallbackReason: dbEnabled ? '所有现象词已被词典覆盖，无需调用模型' : '对话检索大模型总开关已关闭',
-    });
+  /** Level 3：LLM 不可用时的本地检索兜底，意图一律按 search 处理 */
+  const localSearch = (reason: string, recordSkip = false): ChatResult => {
+    if (recordSkip) recordRoute('skip');
+    const cached = getCached(queryNorm);
+    if (cached) return resultFromCache(queryNorm, cached);
+    const result = chatSearch(text, { source: 'rule', route: 'dict', fallbackReason: reason });
     setCached(queryNorm, result.cases.map((c) => c.id), 'dict');
+    return result;
+  };
+
+  if (!dbEnabled) return localSearch('对话检索大模型总开关已关闭', true);
+
+  // Level 2：本地白名单未命中的输入，统一调用一次 LLM 做意图识别 + 条件抽取。
+  // 断网/欠费/超限/解析失败/空条件一律落回 Level 3，默认 intent=search。
+  recordRoute('llm');
+  let outcome: Awaited<ReturnType<typeof extractKeywordsWithLlm>> | null = null;
+  try {
+    outcome = await extractKeywordsWithLlm(text, userEmpNo);
+  } catch (e: any) {
+    return localSearch(`模型调用异常，已回退规则匹配：${String(e?.message || e).slice(0, 120)}`);
+  }
+
+  if (outcome.ok && outcome.intent === 'chitchat') {
+    // 不查案例库、不写 search_cache，直接返回统一预设文案
+    return {
+      keywords: { model: '', customer: '', symptoms: [] },
+      cases: [],
+      weakCases: [],
+      admittedCount: 0,
+      summary: LLM_CHITCHAT_ANSWER,
+      source: 'ai',
+      route: 'llm',
+      intent: 'chitchat',
+    };
+  }
+
+  const kw = outcome.keywords;
+  const hasEffectiveKeywords =
+    !!kw && (!!kw.model || !!kw.customer || (Array.isArray(kw.symptoms) && kw.symptoms.length > 0));
+  if (outcome.ok && outcome.intent === 'search' && hasEffectiveKeywords && kw) {
+    const cached = getCached(queryNorm);
+    if (cached) return resultFromCache(queryNorm, cached);
+    const result = chatSearch(text, {
+      keywords: kw,
+      source: 'ai',
+      aiExpanded: kw.expanded,
+      aiExpandedByTerm: kw.expandedByTerm,
+      route: 'llm',
+    });
+    result.intent = 'search';
+    setCached(queryNorm, result.cases.map((c) => c.id), 'ai');
     return result;
   }
 
-  // 3) 确实需要模型：调用一次（含重试/降级逻辑在 llm 服务内）。
-  //    上游 4xx/5xx、网络/超时、空抽取或未预期异常，都必须落到本地规则兜底，
-  //    绝不能以 source:'ai' + 空 cases 的面貌返回给前端（那会让人误以为模型真的没找到）。
-  recordRoute('llm');
-  let result: ChatResult;
-  try {
-    const outcome = await extractKeywordsWithLlm(text, userEmpNo);
-    const kw = outcome.keywords;
-    const hasEffectiveKeywords =
-      !!kw && (!!kw.model || !!kw.customer || (Array.isArray(kw.symptoms) && kw.symptoms.length > 0));
-    if (outcome.ok && hasEffectiveKeywords && kw) {
-      result = chatSearch(text, {
-        keywords: kw,
-        source: 'ai',
-        aiExpanded: kw.expanded,
-        aiExpandedByTerm: kw.expandedByTerm,
-        route: 'llm',
-      });
-    } else {
-      result = chatSearch(text, {
-        source: 'rule',
-        route: 'dict',
-        fallbackReason:
-          outcome.reason ||
-          (outcome.ok ? '模型未抽取到有效检索条件，已回退规则匹配' : 'LLM 不可用，已回退规则匹配'),
-      });
-    }
-  } catch (e: any) {
-    // LLM 链路任何未预期异常一律本地规则兜底，不把异常冒泡成前端 code=1
-    result = chatSearch(text, {
-      source: 'rule',
-      route: 'dict',
-      fallbackReason: `模型调用异常，已回退规则匹配：${String(e?.message || e).slice(0, 120)}`,
-    });
-  }
-  setCached(queryNorm, result.cases.map((c) => c.id), result.source === 'ai' ? 'ai' : 'dict');
-  return result;
+  return localSearch(
+    outcome.reason ||
+      (outcome.ok ? '模型未抽取到有效检索条件，已回退规则匹配' : 'LLM 不可用，已回退规则匹配')
+  );
 }
