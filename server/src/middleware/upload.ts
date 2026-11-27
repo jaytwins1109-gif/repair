@@ -5,8 +5,8 @@ import path from 'path';
 import type { Request } from 'express';
 
 const UPLOAD_ROOT = path.join(process.cwd(), 'uploads');
-const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.pdf']);
 
 function monthDir() {
   const d = new Date();
@@ -33,7 +33,7 @@ function fileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCall
     return cb(new Error('HEIC 格式浏览器无法预览，请先转换为 jpg 后再上传'));
   }
   if (!ALLOWED_MIME.has(file.mimetype) || !ALLOWED_EXT.has(ext)) {
-    return cb(new Error('仅支持 jpg / jpeg / png / webp 格式的图片'));
+    return cb(new Error('仅支持 jpg / jpeg / png / webp / pdf 格式'));
   }
   return cb(null, true);
 }
@@ -41,7 +41,13 @@ function fileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCall
 export const uploadImages = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024, files: 9 },
+  limits: { fileSize: 30 * 1024 * 1024, files: 9 },
+});
+
+export const uploadAsset = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 30 * 1024 * 1024, files: 1 },
 });
 
 export function relativeUploadPath(file: Express.Multer.File) {
@@ -63,6 +69,48 @@ export function detectImageMime(filePath: string): string | null {
   } finally {
     fs.closeSync(fd);
   }
+}
+
+/** 资料图纸可接受的真实类型：图片三种 + PDF（按文件头判定） */
+export function detectAssetMime(filePath: string): string | null {
+  const image = detectImageMime(filePath);
+  if (image) return image;
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const head = Buffer.alloc(5);
+    const read = fs.readSync(fd, head, 0, head.length, 0);
+    if (read === 5 && head.toString('ascii', 0, 5) === '%PDF-') return 'application/pdf';
+    return null;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/** 资料上传的落盘后校验：按 magic bytes 改写后缀与 mimetype，伪装文件直接删除 */
+export function verifyUploadedAssets(files: Express.Multer.File[]): Express.Multer.File[] {
+  const extOf: Record<string, string> = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'application/pdf': '.pdf',
+  };
+  for (const file of files) {
+    const mime = detectAssetMime(file.path);
+    if (!mime) {
+      try { fs.unlinkSync(file.path); } catch { /* 删除失败不影响拒绝上传 */ }
+      throw new Error('仅支持 jpg / png / webp / pdf 格式（已按文件内容校验）');
+    }
+    const ext = extOf[mime];
+    if (path.extname(file.filename).toLowerCase() !== ext) {
+      const renamed = `${path.basename(file.filename, path.extname(file.filename))}${ext}`;
+      const target = path.join(path.dirname(file.path), renamed);
+      fs.renameSync(file.path, target);
+      file.filename = renamed;
+      file.path = target;
+    }
+    file.mimetype = mime;
+  }
+  return files;
 }
 
 /**
@@ -95,9 +143,9 @@ export function verifyUploadedImages(files: Express.Multer.File[]): Express.Mult
 }
 
 export function uploadErrorToMessage(error: any) {
-  if (error?.code === 'LIMIT_FILE_SIZE') return '单张图片不能超过 10MB';
+  if (error?.code === 'LIMIT_FILE_SIZE') return '单个文件不能超过 30MB';
   if (error?.code === 'LIMIT_FILE_COUNT' || error?.code === 'LIMIT_UNEXPECTED_FILE') {
-    return '一条案例最多上传 9 张图片';
+    return '一次最多上传 9 个文件';
   }
-  return error?.message || '图片上传失败';
+  return error?.message || '文件上传失败';
 }

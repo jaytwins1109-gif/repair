@@ -84,6 +84,19 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_attachments_case ON case_attachments(case_id);
 
+  CREATE TABLE IF NOT EXISTS model_assets (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    model_name    TEXT NOT NULL,
+    file_type     TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    relative_path TEXT NOT NULL,
+    size          INTEGER NOT NULL,
+    uploader      TEXT NOT NULL,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_model_assets_model ON model_assets(model_name);
+
   CREATE TABLE IF NOT EXISTS import_batches (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     batch_no        TEXT NOT NULL UNIQUE,
@@ -409,6 +422,17 @@ export interface AttachmentRow {
   stored_name: string;
   relative_path: string;
   mime_type: string;
+  size: number;
+  uploader: string;
+  created_at: string;
+}
+
+export interface ModelAssetRow {
+  id: number;
+  model_name: string;
+  file_type: 'image' | 'pdf';
+  original_name: string;
+  relative_path: string;
   size: number;
   uploader: string;
   created_at: string;

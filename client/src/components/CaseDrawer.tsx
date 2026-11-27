@@ -6,6 +6,7 @@ import { useToast } from '../hooks/useToast';
 import { AttachmentGallery } from './AttachmentGallery';
 import { Icon } from './Icon';
 import { ImagePicker } from './ImagePicker';
+import { ModelAssetDrawer } from './ModelAssetDrawer';
 import { StatusBadge } from './StatusBadge';
 
 export function CaseDrawer({
@@ -34,6 +35,7 @@ export function CaseDrawer({
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [similar, setSimilar] = useState<SimilarCase[]>([]);
   const [recurrence, setRecurrence] = useState<RecurrenceInfo | null>(null);
+  const [showAssets, setShowAssets] = useState(false);
   const [form, setForm] = useState<CaseInput>({
     model: '',
     customer: '',
@@ -163,6 +165,15 @@ export function CaseDrawer({
       <aside className="animate-pop absolute inset-y-0 right-0 flex w-full max-w-[580px] flex-col bg-surface shadow-pop">
         <div className="flex shrink-0 flex-wrap items-center gap-2.5 border-b border-line px-6 py-[18px]">
           <span className="rounded bg-graphite px-2 py-1 font-mono text-[10.5px] text-[#F3F5F7]">{item.model}</span>
+          {item.model && (
+            <button
+              type="button"
+              onClick={() => setShowAssets(true)}
+              className="rounded-lg border border-line bg-surface-2 px-2.5 py-1 text-[11px] text-[#4B535E] transition-colors hover:border-accent hover:text-accent"
+            >
+              查看该机型的图纸资料
+            </button>
+          )}
           <span className="font-mono text-[10px] text-[#A1A7AF]">#{item.id}</span>
           <StatusBadge status={item.status} />
           {item.category && <span className="rounded bg-accent-soft px-2 py-1 text-[10.5px] text-accent">{item.category}</span>}
@@ -393,6 +404,11 @@ export function CaseDrawer({
           )}
         </div>
       </aside>
+      <ModelAssetDrawer
+        open={showAssets}
+        modelName={item.model}
+        onClose={() => setShowAssets(false)}
+      />
     </div>
   );
 }

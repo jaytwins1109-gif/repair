@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../api';
 import type { Model } from '../api/types';
 import { Icon } from '../components/Icon';
+import { ModelAssetDrawer } from '../components/ModelAssetDrawer';
 import { useRole } from '../hooks/useRole';
 import { useToast } from '../hooks/useToast';
 
@@ -16,6 +17,7 @@ export function ModelsPage({ version }: { version: number }) {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Model | 'new' | null>(null);
   const [form, setForm] = useState<Form>(empty);
+  const [assetsModel, setAssetsModel] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -105,7 +107,7 @@ export function ModelsPage({ version }: { version: number }) {
                 <th className="px-4 py-3 font-medium">平台 / 代次</th>
                 <th className="px-4 py-3 font-medium">备注</th>
                 <th className="px-4 py-3 font-medium">创建时间</th>
-                <th className="w-[110px] px-4 py-3 font-medium">操作</th>
+                <th className="w-[210px] px-4 py-3 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -125,26 +127,35 @@ export function ModelsPage({ version }: { version: number }) {
                     <td className="px-4 py-3 text-muted">{item.note || '—'}</td>
                     <td className="px-4 py-3 font-mono text-[10.5px] text-[#A1A7AF]">{item.created_at}</td>
                     <td className="px-4 py-3">
-                      {isAdmin ? (
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openForm(item)}
-                            className="text-[11.5px] text-accent hover:underline"
-                          >
-                            编辑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void remove(item)}
-                            className="text-[11.5px] text-bad hover:underline"
-                          >
-                            删除
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-[#A6ACB4]">只读</span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAssetsModel(item.model)}
+                          className="text-[11.5px] text-accent hover:underline"
+                        >
+                          资料图纸
+                        </button>
+                        {isAdmin ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openForm(item)}
+                              className="text-[11.5px] text-accent hover:underline"
+                            >
+                              编辑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void remove(item)}
+                              className="text-[11.5px] text-bad hover:underline"
+                            >
+                              删除
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[11px] text-[#A6ACB4]">只读</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -192,6 +203,12 @@ export function ModelsPage({ version }: { version: number }) {
           </div>
         </div>
       )}
+
+      <ModelAssetDrawer
+        open={!!assetsModel}
+        modelName={assetsModel || ''}
+        onClose={() => setAssetsModel(null)}
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import type {
 import { useSessions } from '../hooks/useSessions';
 import { CaseCard } from '../components/CaseCard';
 import { Icon } from '../components/Icon';
+import { ModelAssetDrawer } from '../components/ModelAssetDrawer';
 
 interface Message {
   id: number;
@@ -109,6 +110,7 @@ export function ChatPage({
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [assetsModel, setAssetsModel] = useState<string | null>(null);
   const loading = sending;
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -311,7 +313,7 @@ export function ChatPage({
 
                     {m.cases && m.cases.length > 0 ? (
                       m.cases.map((item) => (
-                        <CaseCard key={item.id} item={item} onOpen={onOpenCase} />
+                        <CaseCard key={item.id} item={item} onOpen={onOpenCase} onViewAssets={setAssetsModel} />
                       ))
                     ) : (
                       !m.error && (!m.weakCases || m.weakCases.length === 0) && (
@@ -328,7 +330,7 @@ export function ChatPage({
                         </summary>
                         <div className="mt-2 grid gap-2">
                           {m.weakCases.map((item) => (
-                            <CaseCard key={`weak-${item.id}`} item={item} onOpen={onOpenCase} />
+                            <CaseCard key={`weak-${item.id}`} item={item} onOpen={onOpenCase} onViewAssets={setAssetsModel} />
                           ))}
                         </div>
                       </details>
@@ -395,6 +397,12 @@ export function ChatPage({
           ENTER 发送 · SHIFT + ENTER 换行 · 检索范围仅限已存档案例
         </div>
       </div>
+
+      <ModelAssetDrawer
+        open={!!assetsModel}
+        modelName={assetsModel || ''}
+        onClose={() => setAssetsModel(null)}
+      />
     </div>
   );
 }

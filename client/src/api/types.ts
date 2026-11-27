@@ -39,6 +39,17 @@ export interface Attachment {
   created_at: string;
 }
 
+export interface ModelAsset {
+  id: number;
+  model_name: string;
+  file_type: 'image' | 'pdf';
+  original_name: string;
+  relative_path: string;
+  size: number;
+  uploader: string;
+  created_at: string;
+}
+
 export interface Case {
   id: number;
   model: string;

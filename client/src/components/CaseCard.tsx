@@ -5,9 +5,11 @@ import { Icon } from './Icon';
 export function CaseCard({
   item,
   onOpen,
+  onViewAssets,
 }: {
   item: ScoredCase;
   onOpen: (item: ScoredCase) => void;
+  onViewAssets: (model: string) => void;
 }) {
   return (
     <article
@@ -20,6 +22,15 @@ export function CaseCard({
         </span>
         <span className="text-[11.5px] text-muted">{item.customer || '未指定客户'}</span>
         <StatusBadge status={item.status} />
+        {item.model && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onViewAssets(item.model); }}
+            className="rounded border border-line bg-surface px-2 py-[3px] text-[10.5px] text-accent transition-colors hover:border-accent"
+          >
+            查看图纸
+          </button>
+        )}
         <span className="ml-auto font-mono text-[10px] text-[#A1A7AF]">
           {item.created_at}
         </span>

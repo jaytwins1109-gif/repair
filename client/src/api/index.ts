@@ -20,6 +20,7 @@ import type {
   LlmRuntime,
   LoginResult,
   Model,
+  ModelAsset,
   PageResult,
   RecurrenceInfo,
   SimilarCase,
@@ -157,6 +158,20 @@ export async function fetchAttachmentBlob(id: number): Promise<Blob> {
   return response.blob();
 }
 
+export async function fetchModelAssetBlob(id: number): Promise<Blob> {
+  const token = getToken();
+  const response = await fetch(`/api/model-assets/${id}/raw`, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (response.status === 401) {
+    clearToken();
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    throw new Error('登录已失效，请重新登录');
+  }
+  if (!response.ok) throw new Error('图纸资料加载失败');
+  return response.blob();
+}
+
 export const api = {
   login(emp_no: string, password: string) {
     return request<LoginResult>('/auth/login', {
@@ -188,6 +203,19 @@ export const api = {
   },
   deleteModel(id: number) {
     return request<{ id: number }>(`/models/${id}`, { method: 'DELETE' });
+  },
+
+  listModelAssets(model: string) {
+    return request<ModelAsset[]>(`/model-assets${toQuery({ model })}`);
+  },
+  uploadModelAsset(modelName: string, file: File, onProgress?: (percent: number) => void) {
+    const form = new FormData();
+    form.append('model_name', modelName);
+    form.append('file', file);
+    return uploadWithProgress<ModelAsset>('/model-assets', form, onProgress);
+  },
+  deleteModelAsset(id: number) {
+    return request<{ id: number }>(`/model-assets/${id}`, { method: 'DELETE' });
   },
 
   listCustomers(q = '') {
