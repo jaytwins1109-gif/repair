@@ -33,6 +33,10 @@ interface Message {
   intent?: 'chitchat' | 'search' | 'aggregate' | 'followup';
 }
 
+/** aggregate/followup 同属检索类，统一按 search 渲染；chitchat 绝不渲染案例区 */
+const resultIntentOf = (m: Message) =>
+  m.intent === 'aggregate' || m.intent === 'followup' ? 'search' : m.intent;
+
 const SUGGESTIONS = [
   '联想 SR650 客户华为 开机无显示，风扇满转',
   '戴尔 R740 开机无显示',
@@ -317,29 +321,33 @@ export function ChatPage({
                       </details>
                     )}
 
-                    {m.cases && m.cases.length > 0 ? (
-                      m.cases.map((item) => (
-                        <CaseCard key={item.id} item={item} onOpen={onOpenCase} onViewAssets={setAssetsModel} />
-                      ))
-                    ) : (
-                      !m.error && (!m.weakCases || m.weakCases.length === 0) && (
-                        <div className="mt-[11px] rounded-[10px] border border-dashed border-line bg-surface-2 px-4 py-4 text-[12.5px] leading-[1.8] text-muted">
-                          知识库中未找到相似案例，建议上传现场记录。
-                        </div>
-                      )
-                    )}
+                    {resultIntentOf(m) === 'search' && (
+                      <>
+                        {m.cases && m.cases.length > 0 ? (
+                          m.cases.map((item) => (
+                            <CaseCard key={item.id} item={item} onOpen={onOpenCase} onViewAssets={setAssetsModel} />
+                          ))
+                        ) : (
+                          !m.error && (!m.weakCases || m.weakCases.length === 0) && (
+                            <div className="mt-[11px] rounded-[10px] border border-dashed border-line bg-surface-2 px-4 py-4 text-[12.5px] leading-[1.8] text-muted">
+                              知识库中未找到相似案例，建议上传现场记录。
+                            </div>
+                          )
+                        )}
 
-                    {m.weakCases && m.weakCases.length > 0 && (
-                      <details className="mt-[11px] rounded-[10px] border border-dashed border-line bg-surface-2 px-3 py-2">
-                        <summary className="cursor-pointer font-mono text-[10px] tracking-[.06em] text-muted">
-                          弱相关，仅供参考（{m.weakCases.length} 条，展开查看）
-                        </summary>
-                        <div className="mt-2 grid gap-2">
-                          {m.weakCases.map((item) => (
-                            <CaseCard key={`weak-${item.id}`} item={item} onOpen={onOpenCase} onViewAssets={setAssetsModel} />
-                          ))}
-                        </div>
-                      </details>
+                        {m.weakCases && m.weakCases.length > 0 && (
+                          <details className="mt-[11px] rounded-[10px] border border-dashed border-line bg-surface-2 px-3 py-2">
+                            <summary className="cursor-pointer font-mono text-[10px] tracking-[.06em] text-muted">
+                              弱相关，仅供参考（{m.weakCases.length} 条，展开查看）
+                            </summary>
+                            <div className="mt-2 grid gap-2">
+                              {m.weakCases.map((item) => (
+                                <CaseCard key={`weak-${item.id}`} item={item} onOpen={onOpenCase} onViewAssets={setAssetsModel} />
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </>
                     )}
 
                     <div className="mt-[7px] px-[3px] font-mono text-[10px] text-[#A6ACB4]">
