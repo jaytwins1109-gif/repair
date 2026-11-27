@@ -66,6 +66,8 @@
 
 - **技术向对话与专业人设（第 38/39 轮）**：对话新增意图路由——闲聊/系统指引（你是谁、怎么上传、怎么审核）不查库直接返回预设回复；「查看某客户/机型全部案例」由规则抽取条件查库后交 LLM 做自然语言总结（0 结果仍返回未找到）；多轮追问只依据上一轮 Top3 案例，未提及配件一律回复固定文案，绝不编造。`llm_configs` 新增 `system_prompt`，模型管理页可编辑/恢复默认（留空回退内置专业 Prompt），该 Prompt 同时注入检索条件抽取与对话/聚合/追问调用；E2E 截图与断言见逐轮记录。
 
+- **就近搜索（第 40 轮）**：移除顶栏中间的全局搜索框与强制跳转，顶栏只保留页面标题、上传案例按钮、用户信息/退出；各页继续使用自己的搜索入口——对话底部输入框、案例库关键字/客户/型号/分类/状态筛选、机型与客户管理页局部搜索。Playwright 截图与断言见第 40 轮记录。
+
 ### 启动命令
 
 ```powershell
@@ -138,6 +140,7 @@ npm run dev      # concurrently 同时启动 server :3001 与 client :5173
 39. **第 22 轮安全加固已完成、等用户检查**：五项全部做完并实测通过（SQL 审计清单、LIKE 转义、附件越权、类型安全、渲染/导出注入），清理后开发库零写入（cases=33/附件=0/TMPR22=0）、副本目录已删。本轮严格未碰 `chat.ts` 打分/准入/词典归一化与 `search_cache`，未加任何点外功能；按用户「做完停下等我看」未做删除示例案例、未 push、未加浏览器点测等其它动作。
 40. **新报告规范生效（第 23 轮）**：用户定下以后每轮交付的硬规范——每项验证四段式（测什么/怎么测/实际输出/结论）、禁止只写结论词、清单数量与正文条数一致、高危测试产物列清理清单等用户确认后再删、临时脚本走 verify 守卫 + 副本、结尾给状态迁移表。本轮只补第 22 轮证据、业务代码零改动；新增 `verify-r23-evidence.ts`（不在 finally 清理）打印完整 URL/响应体。已把测试产物全部留下等确认：TMPR23A540592 / TMPR23B540592、案例 id=39、附件 id=4、文件 `server/verify/.db/r23-evidence/uploads/2026-11/444bec131d51c8852473466538d59854.png`、副本目录 `server/verify/.db/r23-evidence`、out 文件 `verify-r23-evidence-out.txt` 与 `verify-r22-sql-audit-out.txt`。另查实 `uploads/...02d6b7b8...png` **进过** git 历史（`09a9876` 树内含该 blob `22a565bf`），`a2b0268`/HEAD 已无，但 reflog 与对象库仍有 `09a9876`/`a2b0268`；补 `.gitignore` 不足以清历史，彻底清除需 `git reflog expire` + `git gc --prune=now` 或 filter-repo，等用户确认后再做。
 41. **第 39 轮状态（待人工点测）**：System Prompt 已配置化并注入实际 LLM 调用，API 实测保存/清空回退默认值成功且 `api_key` 未变；浏览器端「模型管理 → 系统提示词 textarea / 恢复默认值」与对话专业人设的观感仍需人工确认。上游失败时聚合用模板兜底、追问用固定不可用文案兜底，本轮未制造 401 实测；意图拦截仍为纯规则，未覆盖全部中文问法。
+42. **第 40 轮状态**：顶栏全局搜索已移除，就近搜索已用独立测试库 + TMP 临时账号的 Playwright 真实浏览器验证通过；两张截图为自动生成，最终观感仍需用户在云电脑浏览器人工确认。全程未使用用户账号、未调用登出；副本目录与临时账号脚本已删除。
 
 ---
 
@@ -1073,3 +1076,24 @@ RESTORE_OK=true  RESTORE_EXIT=0
 5. Git 归档：`git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "新增自定义System Prompt并注入LLM调用，模型管理页支持编辑与恢复默认值"` → `7231cda`（8 files / 200 insertions / 12 deletions）；`git push origin master` → `7b2f172..7231cda master -> master`、`PUSH_EXIT=0`。提交前 `git status --short --untracked-files=all` 仅列出 7 个代码文件与 1 个 E2E 脚本，无敏感文件。本条日志随后单独归档推送。
 
 **未验证 / 未执行（如实）**：浏览器人工点测「模型管理 → 系统提示词 textarea / 恢复默认值」与对话专业人设观感未做（已有 Playwright 真实浏览器 E2E 与 API 实测）；上游失败时聚合模板兜底、追问固定文案兜底未制造 401 实测；真实 Excel 打开 CSV 仍为用户人工验收项；未跑全量旧验证脚本；本轮未新增依赖、未写业务数据。
+
+---
+
+### 第 40 轮 · 2026-11-27 — 移除顶栏全局搜索，改为就近搜索
+
+**用户要求**：顶栏中间的全局搜索框与页内搜索严重冗余、强制跳转打断工作流，决定移除全局搜索：① 彻底移除顶部导航栏中间搜索输入框；② 保留页面标题、上传案例、用户信息/角色显示并调整布局；③ 验证对话底部输入框、案例库表格筛选、机型/客户管理页各自搜索正常（没有就补）；④ Playwright 截图「对话检索」与「案例库」确认顶栏无多余搜索框且页内搜索可用。
+
+**实际改动文件**：
+- `client/src/components/Header.tsx`：删除中间 `input` 及 `search` / `onSearchChange` / `onSearchSubmit` props，只保留标题+副标题、上传案例按钮、用户信息与退出按钮。
+- `client/src/App.tsx`：删除 `search` state、`useCaseFilters` 引用与 `submitSearch`（原逻辑会给案例库 `q` 赋值并强制 `setPage('cases')`）；Header 调用简化为标题/副标题/上传三项。
+- `client/e2e/r40-e2e.mjs`：新增 Playwright 验收脚本，使用 `VACUUM INTO` 独立副本 + TMP 临时工程师账号 + Playwright 路由转发到 3002 测试后端，覆盖四页搜索与两张截图。
+- 机型/客户管理页经核对**已有**局部搜索框（占位符分别为「搜索品牌 / 型号 / 平台…」「搜索名称 / 联系人 / 备注…」），本轮**未改**；后端、配置表、业务数据零改动。
+
+**实际验证过的命令与结果**：
+1. 编译：`& '.\server\node_modules\.bin\tsc.cmd' --noEmit -p server/tsconfig.json` → `SERVER_TSC_EXIT=0`；`npm run build --prefix client` → `CLIENT_BUILD_EXIT=0`（54 modules、CSS 34.65 KB / JS 290.66 KB、3.02s）。
+2. Playwright（`cd client && node e2e/r40-e2e.mjs`，独立库 + TMPR40ENG 临时工程师）：`TEST_SERVER_HEALTH=true`、`LOGIN_AS=TMPR40ENG`、`HEADER_TITLE=对话检索`、`ASSERT_HEADER_HAS_USER=true`、`ASSERT_HEADER_HAS_UPLOAD=true`、`ASSERT_CHAT_NO_GLOBAL_SEARCH=true`、`ASSERT_CASES_NO_GLOBAL_SEARCH=true`；对话发送后 `CHAT_CASE_BADGES=3`、`ASSERT_CHAT_REPLY=true`；案例库 `CASES_BASE=31` → 关键字 R740 `5` 条（`ASSERT_CASES_Q_FILTER=true`）、客户「华为」`11` 条（`ASSERT_CASES_CUSTOMER_FILTER=true`）、型号「联想 SR650」`8` 条（`ASSERT_CASES_MODEL_FILTER=true`）；机型页 13→1（`ASSERT_MODELS_SEARCH=true`）、客户页 8→1（`ASSERT_CUSTOMERS_SEARCH=true`）；`FINAL_CONSOLE_ERRORS=[]`、`E2E_EXIT=0`。对话命中缓存时回复为「缓存命中：直接返回之前 4 条结果，未调用大模型。」，因此断言改为「回复气泡存在 + 用户消息可见 + R740 案例卡片可见」，符合真实缓存路径。
+3. 截图目视：`client/e2e/screenshots/r40-chat-ui.png` 顶部只有「对话检索」标题、上传案例、TMP 用户信息，底部输入框已发送「R740开机无显示」且下方有案例卡片；`r40-cases-ui.png` 顶部同样无全局搜索，筛选栏关键字为 R740、结果 5 条、已选条件标签显示「关键字 R740」。截图与 `r40-e2e-out.txt` 均被 `.gitignore` 排除。
+4. 隔离与清理：副本 `server/verify/.db/r40-ui/` 由 `verify-copy.mjs` 从开发库只读生成；TMP 账号由 `verify-r40-account.mjs` 只写入副本；未使用用户账号、未登出、未碰开发库；测后 `COPY_DIR_DELETED=true`、`TMP_ACCOUNT_SCRIPT_DELETED=true`。期间修过两处脚本问题：Node `fetch` 的 `res.status` 是属性不是函数；Playwright 路由原写法 `**/api/**` 误伤 `/src/api/index.ts`，已收窄为 `http://127.0.0.1:5173/api/**`。
+5. Git 归档：`git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "移除顶栏全局搜索，采用页面内就近搜索并新增Playwright验收"` → `b010315`（3 files / 225 insertions / 39 deletions）；`git push origin master` → `2f8f90f..b010315 master -> master`、`PUSH_EXIT=0`。提交前清单仅 `App.tsx`、`Header.tsx`、新 E2E 脚本，无敏感文件。本条日志随后单独归档推送。
+
+**未验证 / 未执行（如实）**：最终观感仍需用户在云电脑浏览器人工确认（已有 Playwright 真实浏览器截图与断言）；对话验证走的是缓存命中路径，未重新触发真实 LLM 抽取（本轮目标是 UI 搜索而非检索算法）；真实 Excel 打开 CSV 仍为用户人工验收项；未跑全量旧验证脚本。
