@@ -4,16 +4,10 @@ import { Icon } from './Icon';
 export function Header({
   title,
   subtitle,
-  search,
-  onSearchChange,
-  onSearchSubmit,
   onUpload,
 }: {
   title: string;
   subtitle: string;
-  search: string;
-  onSearchChange: (value: string) => void;
-  onSearchSubmit: () => void;
   onUpload: () => void;
 }) {
   const { user, logout } = useAuth();
@@ -28,22 +22,6 @@ export function Header({
       </div>
 
       <div className="flex-1" />
-
-      <div className="relative w-[min(280px,30vw)]">
-        <Icon
-          name="search"
-          className="pointer-events-none absolute left-[11px] top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-muted"
-        />
-        <input
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') onSearchSubmit();
-          }}
-          placeholder="全局搜索案例 / 型号 / 客户"
-          className="w-full rounded-lg border border-line bg-surface-2 py-[9px] pl-[34px] pr-3 text-[12.5px] text-ink outline-none transition-colors placeholder:text-[#AEB4BC] focus:border-accent focus:bg-white focus:ring-4 focus:ring-accent/10"
-        />
-      </div>
 
       <button
         type="button"

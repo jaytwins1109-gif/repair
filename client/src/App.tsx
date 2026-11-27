@@ -6,7 +6,7 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { UploadCaseModal } from './components/UploadCaseModal';
 import { AuthProvider, useAuth } from './hooks/useAuth';
-import { CaseFiltersProvider, useCaseFilters } from './hooks/useCaseFilters';
+import { CaseFiltersProvider } from './hooks/useCaseFilters';
 import { SessionsProvider } from './hooks/useSessions';
 import { ToastProvider } from './hooks/useToast';
 import { NAV_ITEMS, type PageKey } from './navigation';
@@ -21,8 +21,6 @@ import { SettingsPage } from './pages/SettingsPage';
 
 function AppShell() {
   const [page, setPage] = useState<PageKey>('chat');
-  const [search, setSearch] = useState('');
-  const { setFilter } = useCaseFilters();
   const [drawerCase, setDrawerCase] = useState<Case | null>(null);
   const [drawerEditing, setDrawerEditing] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -49,12 +47,6 @@ function AppShell() {
   const openUpload = useCallback(() => setUploadOpen(true), []);
   const closeUpload = useCallback(() => setUploadOpen(false), []);
 
-  const submitSearch = useCallback(() => {
-    if (!search.trim()) return;
-    setFilter('q', search.trim());
-    setPage('cases');
-  }, [search, setFilter]);
-
   const current = NAV_ITEMS.find((item) => item.key === page) || NAV_ITEMS[0];
 
   return (
@@ -62,14 +54,7 @@ function AppShell() {
       <Sidebar current={page} onNavigate={setPage} pendingCount={pendingCount} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header
-          title={current.label}
-          subtitle={current.subtitle}
-          search={search}
-          onSearchChange={setSearch}
-          onSearchSubmit={submitSearch}
-          onUpload={openUpload}
-        />
+        <Header title={current.label} subtitle={current.subtitle} onUpload={openUpload} />
 
         <main className="min-h-0 flex-1 overflow-hidden">
           {page === 'chat' && <ChatPage onOpenCase={openCase} />}
