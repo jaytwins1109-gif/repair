@@ -49,7 +49,10 @@ export function saveKnowledgeDoc(
   const relativePath = path
     .join(path.basename(path.dirname(file.path)), path.basename(file.filename))
     .replace(/\\/g, '/');
-  const fileType = path.extname(file.filename).toLowerCase().slice(1);
+  // 图片统一存 image，与原有 pdf/docx/xlsx/... 扩展名类型区分；mimetype 已由 magic bytes 校验覆盖
+  const fileType = file.mimetype.startsWith('image/')
+    ? 'image'
+    : path.extname(file.filename).toLowerCase().slice(1);
   const info = db
     .prepare(
       `INSERT INTO knowledge_docs (category, title, file_name, relative_path, file_type, size, uploader)

@@ -10,7 +10,10 @@ const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.pdf']);
 
 // 第 45 轮：技术知识库文档白名单。浏览器常把 Office 文件报成 application/octet-stream，
 // 先按扩展名放行，落盘后再用 magic bytes 判定真实类型（见 detectKnowledgeType）。
-const KNOWLEDGE_EXT = new Set(['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.pdf']);
+const KNOWLEDGE_EXT = new Set([
+  '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.pdf',
+  '.png', '.jpg', '.jpeg', '.webp',
+]);
 const KNOWLEDGE_MIME = new Set([
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -19,6 +22,9 @@ const KNOWLEDGE_MIME = new Set([
   'application/vnd.ms-powerpoint',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
   'application/octet-stream',
 ]);
 const KNOWLEDGE_MIME_BY_EXT: Record<string, string> = {
@@ -76,7 +82,7 @@ export const uploadAsset = multer({
 function knowledgeFileFilter(_req: Request, file: Express.Multer.File, cb: FileFilterCallback) {
   const ext = path.extname(String(file.originalname || '').toLowerCase());
   if (!KNOWLEDGE_EXT.has(ext)) {
-    return cb(new Error('文档仅支持 doc / docx / xls / xlsx / ppt / pptx / pdf 格式'));
+    return cb(new Error('文档仅支持 doc / docx / xls / xlsx / ppt / pptx / pdf / png / jpg / jpeg / webp 格式'));
   }
   if (!KNOWLEDGE_MIME.has(file.mimetype)) {
     return cb(new Error('文档 MIME 类型不受支持'));
@@ -137,6 +143,13 @@ function bufferIncludesToken(buf: Buffer, token: string) {
 }
 
 export function detectKnowledgeType(filePath: string, originalName = ''): KnowledgeType | null {
+  // 第 50 轮：图片与 Office/PDF 共用同一套 magic bytes 校验，不信任扩展名和客户端 mimetype
+  const imageMime = detectImageMime(filePath);
+  if (imageMime) {
+    const ext = imageMime === 'image/jpeg' ? 'jpg' : imageMime === 'image/png' ? 'png' : 'webp';
+    return { ext, mime: imageMime };
+  }
+
   const fd = fs.openSync(filePath, 'r');
   try {
     const head = Buffer.alloc(8);
@@ -197,7 +210,7 @@ export function verifyUploadedKnowledgeDocs(files: Express.Multer.File[]): Expre
     const detected = detectKnowledgeType(file.path, file.originalname);
     if (!detected) {
       try { fs.unlinkSync(file.path); } catch { /* 删除失败不影响拒绝上传 */ }
-      throw new Error('仅支持 doc / docx / xls / xlsx / ppt / pptx / pdf 格式（已按文件内容校验）');
+      throw new Error('仅支持 doc / docx / xls / xlsx / ppt / pptx / pdf / png / jpg / jpeg / webp 格式（已按文件内容校验）');
     }
     const expectedExt = `.${detected.ext}`;
     if (path.extname(file.filename).toLowerCase() !== expectedExt) {

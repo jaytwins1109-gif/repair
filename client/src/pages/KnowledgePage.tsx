@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { api, fetchKnowledgeDocBlob } from '../api';
 import { KNOWLEDGE_CATEGORIES, type KnowledgeDoc } from '../api/types';
 import { Icon } from '../components/Icon';
+import { ZoomImagePreview } from '../components/ZoomImagePreview';
 import { useRole } from '../hooks/useRole';
 import { useToast } from '../hooks/useToast';
 
@@ -65,7 +66,7 @@ export function KnowledgePage() {
   }, {});
 
   const openPreview = async (doc: KnowledgeDoc) => {
-    if (doc.file_type !== 'pdf') return;
+    if (doc.file_type !== 'pdf' && doc.file_type !== 'image') return;
     try {
       const blob = await fetchKnowledgeDocBlob(doc.id);
       const url = URL.createObjectURL(blob);
@@ -146,7 +147,7 @@ export function KnowledgePage() {
           </button>
         ))}
         <p className="mt-6 px-3 text-[11px] leading-5 text-muted">
-          仅按标题与文件名检索，暂不支持文档全文检索。PDF 可在线预览，Office 文档请下载到本地查看。
+          仅按标题与文件名检索，暂不支持文档全文检索。PDF 与图片可在线预览，Office 文档请下载到本地查看。
         </p>
       </aside>
 
@@ -213,7 +214,7 @@ export function KnowledgePage() {
                       <td className="px-4 py-3 font-mono text-[10.5px] text-[#A1A7AF]">{doc.created_at}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          {doc.file_type === 'pdf' && (
+                          {(doc.file_type === 'pdf' || doc.file_type === 'image') && (
                             <button type="button" onClick={() => void openPreview(doc)} className="text-[11.5px] text-accent hover:underline">
                               预览
                             </button>
@@ -265,10 +266,10 @@ export function KnowledgePage() {
                   onChange={(e) => setTitle(e.target.value)}
                 />
               </Field>
-              <Field label="文件 *（PDF / Word / Excel / PPT，最大 50MB）">
+              <Field label="文件 * (PDF / Word / Excel / PPT / 图片，最大 50MB)">
                 <input
                   type="file"
-                  accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf"
+                  accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,image/*"
                   className={inputCls}
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
                 />
@@ -289,28 +290,36 @@ export function KnowledgePage() {
         </div>
       )}
 
-      {preview && (
-        <div className="fixed inset-0 z-[70] flex flex-col bg-[#14181D]/90">
-          <div className="flex shrink-0 items-center gap-3 bg-[#1B2027] px-5 py-3 text-white">
-            <span className="min-w-0 flex-1 truncate text-[12.5px]">{preview.doc.title}</span>
-            <button
-              type="button"
-              onClick={() => setPreview(null)}
-              className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-white/10 hover:bg-white/20"
-              title="关闭预览"
-            >
-              <Icon name="close" className="h-[15px] w-[15px]" />
-            </button>
+      {preview &&
+        (preview.doc.file_type === 'image' ? (
+          <ZoomImagePreview
+            src={preview.url}
+            alt={preview.doc.file_name}
+            title={preview.doc.title}
+            onClose={() => setPreview(null)}
+          />
+        ) : (
+          <div className="fixed inset-0 z-[70] flex flex-col bg-[#14181D]/90">
+            <div className="flex shrink-0 items-center gap-3 bg-[#1B2027] px-5 py-3 text-white">
+              <span className="min-w-0 flex-1 truncate text-[12.5px]">{preview.doc.title}</span>
+              <button
+                type="button"
+                onClick={() => setPreview(null)}
+                className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-white/10 hover:bg-white/20"
+                title="关闭预览"
+              >
+                <Icon name="close" className="h-[15px] w-[15px]" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <iframe
+                src={`${preview.url}#toolbar=1`}
+                title={preview.doc.file_name}
+                className="h-full w-full border-0 bg-white"
+              />
+            </div>
           </div>
-          <div className="min-h-0 flex-1">
-            <iframe
-              src={`${preview.url}#toolbar=1`}
-              title={preview.doc.file_name}
-              className="h-full w-full border-0 bg-white"
-            />
-          </div>
-        </div>
-      )}
+        ))}
     </div>
   );
 }

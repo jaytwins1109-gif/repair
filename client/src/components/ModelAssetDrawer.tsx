@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { TransformComponent, TransformWrapper, type ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { api, fetchModelAssetBlob } from '../api';
 import type { ModelAsset } from '../api/types';
 import { useToast } from '../hooks/useToast';
 import { Icon } from './Icon';
+import { ZoomImagePreview } from './ZoomImagePreview';
 
 function formatSize(size: number) {
   if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
@@ -26,7 +26,6 @@ export function ModelAssetDrawer({
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<{ asset: ModelAsset; url: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const transformRef = useRef<ReactZoomPanPinchRef>(null);
 
   const load = useCallback(() => {
     if (!open || !modelName) return;
@@ -152,54 +151,36 @@ export function ModelAssetDrawer({
         </div>
       </aside>
 
-      {preview && (
-        <div className="fixed inset-0 z-[70] flex flex-col bg-[#14181D]/90">
-          <div className="flex shrink-0 items-center gap-3 bg-[#1B2027] px-5 py-3 text-white">
-            <span className="min-w-0 flex-1 truncate text-[12.5px]">{preview.asset.original_name}</span>
-            {preview.asset.file_type === 'image' && (
-              <>
-                <button type="button" onClick={() => transformRef.current?.zoomIn(0.5)} className="rounded border border-white/25 px-2.5 py-1 text-[12px]">放大</button>
-                <button type="button" onClick={() => transformRef.current?.zoomOut(0.5)} className="rounded border border-white/25 px-2.5 py-1 text-[12px]">缩小</button>
-                <button type="button" onClick={() => transformRef.current?.resetTransform()} className="rounded border border-white/25 px-2.5 py-1 text-[12px]">复位</button>
-                <span className="text-[10.5px] text-white/60">滚轮缩放 · 拖拽平移</span>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={() => setPreview(null)}
-              className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-white/10 hover:bg-white/20"
-              title="关闭预览"
-            >
-              <Icon name="close" className="h-[15px] w-[15px]" />
-            </button>
-          </div>
-          <div className="min-h-0 flex-1">
-            {preview.asset.file_type === 'pdf' ? (
+      {preview &&
+        (preview.asset.file_type === 'image' ? (
+          <ZoomImagePreview
+            src={preview.url}
+            alt={preview.asset.original_name}
+            title={preview.asset.original_name}
+            onClose={() => setPreview(null)}
+          />
+        ) : (
+          <div className="fixed inset-0 z-[70] flex flex-col bg-[#14181D]/90">
+            <div className="flex shrink-0 items-center gap-3 bg-[#1B2027] px-5 py-3 text-white">
+              <span className="min-w-0 flex-1 truncate text-[12.5px]">{preview.asset.original_name}</span>
+              <button
+                type="button"
+                onClick={() => setPreview(null)}
+                className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-white/10 hover:bg-white/20"
+                title="关闭预览"
+              >
+                <Icon name="close" className="h-[15px] w-[15px]" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
               <iframe
                 src={`${preview.url}#toolbar=1`}
                 title={preview.asset.original_name}
                 className="h-full w-full border-0 bg-white"
               />
-            ) : (
-              <TransformWrapper
-                ref={transformRef}
-                initialScale={1}
-                minScale={0.25}
-                maxScale={12}
-                wheel={{ step: 0.2 }}
-                doubleClick={{ step: 0.7 }}
-              >
-                <TransformComponent
-                  wrapperClass="h-full w-full overflow-hidden bg-[#1B2027]"
-                  contentClass="flex h-full w-full items-center justify-center"
-                >
-                  <img src={preview.url} alt={preview.asset.original_name} className="max-w-none select-none" />
-                </TransformComponent>
-              </TransformWrapper>
-            )}
+            </div>
           </div>
-        </div>
-      )}
+        ))}
     </div>
   );
 }

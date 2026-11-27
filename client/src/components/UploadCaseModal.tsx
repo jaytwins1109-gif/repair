@@ -58,7 +58,14 @@ export function UploadCaseModal({
       return;
     }
 
-    const modelRow = models.find((m) => m.model === form.model.trim());
+    // datalist 展示的是「品牌 + 型号」（与截图一致），校验时必须兼容两种写法
+    const modelText = form.model.trim().replace(/\s+/g, ' ');
+    const modelRow = models.find((m) => {
+      const bare = m.model.trim().replace(/\s+/g, ' ');
+      const withBrand = `${m.brand} ${bare}`.trim();
+      return bare === modelText || withBrand === modelText ||
+        withBrand.replace(/\s+/g, '') === modelText.replace(/\s+/g, '');
+    });
     if (!modelRow) {
       toast('型号请从下拉列表中选择已有机型', 'error');
       return;
