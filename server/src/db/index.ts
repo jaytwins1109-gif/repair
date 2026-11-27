@@ -108,6 +108,7 @@ db.exec(`
     max_tokens  INTEGER NOT NULL DEFAULT 1024,
     timeout_seconds INTEGER NOT NULL DEFAULT 20,
     thinking_enabled INTEGER NOT NULL DEFAULT 0,
+    system_prompt TEXT NOT NULL DEFAULT '',
     enabled     INTEGER NOT NULL DEFAULT 1,
     is_active   INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
@@ -443,6 +444,7 @@ export interface LlmConfigRow {
   max_tokens: number;
   timeout_seconds: number;
   thinking_enabled: number;
+  system_prompt: string;
   enabled: number;
   is_active: number;
   created_at: string;

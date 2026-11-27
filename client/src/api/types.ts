@@ -262,6 +262,10 @@ export interface LlmConfig {
   max_tokens: number;
   timeout_seconds: number;
   thinking_enabled: boolean;
+  /** 自定义系统提示词；空字符串表示使用内置默认值 */
+  system_prompt: string;
+  /** 后端内置默认 Prompt，供「恢复默认值」使用 */
+  system_prompt_default: string;
   enabled: boolean;
   is_active: boolean;
   created_at: string;
@@ -278,6 +282,7 @@ export interface LlmConfigInput {
   max_tokens: number;
   timeout_seconds: number;
   thinking_enabled: boolean;
+  system_prompt?: string;
   enabled: boolean;
 }
 

@@ -17,6 +17,16 @@ const PLATFORM_DEFAULTS: Record<LlmPlatform, { base_url: string; model: string }
   custom: { base_url: '', model: '' },
 };
 
+/** 内置默认系统提示词（与后端 llm.ts 的 DEFAULT_SYSTEM_PROMPT 保持一致；留空保存即回退到此值） */
+const DEFAULT_SYSTEM_PROMPT = [
+  '你是“服务器主板维修专家助手”。你的任务是基于系统知识库提供的真实维修案例，回答技术员的问题。',
+  '你的回复必须遵循以下原则：',
+  '1. 【专业且精炼】你的语气必须像一个资深硬件工程师，客观、严谨、直击要害。不使用废话、客套话或过于活泼的语气。',
+  '2. 【严禁幻觉】你只能基于【系统提供的案例】进行总结和回答。如果案例中没提到某配件，你就明确说“案例中未提及该配件”，绝不能依靠通用知识去编造。',
+  '3. 【结构化输出】总结方案时，尽量使用列表，按“故障现象 -> 诊断过程 -> 解决方案 -> 涉及配件”的结构输出。',
+  '4. 【对话引导】如果用户的问题过于模糊（如只说了型号没说现象），请主动追问：“请描述具体的故障现象（如无法开机、风扇异常、报错代码等）。”',
+].join('\n');
+
 function emptyForm(): LlmConfigInput {
   return {
     name: '',
@@ -28,6 +38,7 @@ function emptyForm(): LlmConfigInput {
     max_tokens: 1024,
     timeout_seconds: 20,
     thinking_enabled: false,
+    system_prompt: '',
     enabled: true,
   };
 }
@@ -80,6 +91,7 @@ export function ModelsAdminPage() {
       max_tokens: c.max_tokens,
       timeout_seconds: c.timeout_seconds ?? 20,
       thinking_enabled: c.thinking_enabled ?? false,
+      system_prompt: c.system_prompt || '',
       enabled: c.enabled,
     });
   };
@@ -447,6 +459,25 @@ export function ModelsAdminPage() {
                   placeholder={editingId === null ? 'sk-...' : '留空不修改'}
                   className={inputCls}
                 />
+              </Field>
+              <Field
+                label="系统提示词（System Prompt）"
+                hint="注入到每次大模型调用（条件抽取与对话总结都会带上）。留空即使用内置默认的专业维修工程师人设。"
+              >
+                <textarea
+                  rows={7}
+                  value={form.system_prompt || ''}
+                  onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
+                  placeholder={DEFAULT_SYSTEM_PROMPT}
+                  className={inputCls + ' resize-y leading-[1.6]'}
+                />
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, system_prompt: DEFAULT_SYSTEM_PROMPT })}
+                  className="mt-2 rounded-lg border border-line px-3 py-1.5 text-[11.5px] text-ink hover:border-accent"
+                >
+                  恢复默认值
+                </button>
               </Field>
               <div className="grid grid-cols-2 gap-4">
                 <Field label="温度 (0-1)">

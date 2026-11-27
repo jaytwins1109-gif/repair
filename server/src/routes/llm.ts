@@ -35,6 +35,9 @@ router.post('/llm/configs', requireRole('engineer'), (req, res) => {
       model: req.body?.model,
       temperature: req.body?.temperature,
       max_tokens: req.body?.max_tokens,
+      timeout_seconds: req.body?.timeout_seconds,
+      thinking_enabled: req.body?.thinking_enabled,
+      system_prompt: req.body?.system_prompt,
       enabled: req.body?.enabled,
     };
     return ok(res, createConfig(input), '配置已创建');
@@ -54,6 +57,9 @@ router.put('/llm/configs/:id', requireRole('engineer'), (req, res) => {
       model: req.body?.model,
       temperature: req.body?.temperature,
       max_tokens: req.body?.max_tokens,
+      timeout_seconds: req.body?.timeout_seconds,
+      thinking_enabled: req.body?.thinking_enabled,
+      system_prompt: req.body?.system_prompt,
       enabled: req.body?.enabled,
     };
     return ok(res, updateConfig(id, input), '配置已保存');

@@ -15,6 +15,9 @@ const CASE_COLUMNS = [
 const LLM_CONFIG_COLUMNS = [
   'timeout_seconds INTEGER NOT NULL DEFAULT 20',
   'thinking_enabled INTEGER NOT NULL DEFAULT 0',
+  // 第 39 轮：自定义系统提示词。空字符串表示使用代码内置的 DEFAULT_SYSTEM_PROMPT；
+  // 只加列、不回填数据，符合「迁移只做结构变更」红线。
+  "system_prompt TEXT NOT NULL DEFAULT ''",
 ];
 
 const LLM_CALL_COLUMNS = [

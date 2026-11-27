@@ -6,6 +6,25 @@ const PLATFORM_DEFAULTS: Record<LlmPlatform, { baseUrl: string; model: string }>
   custom: { baseUrl: '', model: '' },
 };
 
+/**
+ * 默认系统提示词（第 39 轮）：资深服务器主板维修工程师人设。
+ * 用户可在「模型管理」里为每套配置自定义；留空时回退到本常量。
+ */
+export const DEFAULT_SYSTEM_PROMPT = [
+  '你是“服务器主板维修专家助手”。你的任务是基于系统知识库提供的真实维修案例，回答技术员的问题。',
+  '你的回复必须遵循以下原则：',
+  '1. 【专业且精炼】你的语气必须像一个资深硬件工程师，客观、严谨、直击要害。不使用废话、客套话或过于活泼的语气。',
+  '2. 【严禁幻觉】你只能基于【系统提供的案例】进行总结和回答。如果案例中没提到某配件，你就明确说“案例中未提及该配件”，绝不能依靠通用知识去编造。',
+  '3. 【结构化输出】总结方案时，尽量使用列表，按“故障现象 -> 诊断过程 -> 解决方案 -> 涉及配件”的结构输出。',
+  '4. 【对话引导】如果用户的问题过于模糊（如只说了型号没说现象），请主动追问：“请描述具体的故障现象（如无法开机、风扇异常、报错代码等）。”',
+].join('\n');
+
+/** 取该配置生效的系统提示词：自定义为空则用默认值 */
+export function getSystemPrompt(config: LlmConfigRow | null): string {
+  const custom = String((config as any)?.system_prompt || '').trim();
+  return custom || DEFAULT_SYSTEM_PROMPT;
+}
+
 export function isLlmPlatform(v: any): v is LlmPlatform {
   return v === 'deepseek' || v === 'openai' || v === 'custom';
 }
@@ -30,6 +49,8 @@ function rowToPublic(row: LlmConfigRow) {
     max_tokens: row.max_tokens,
     timeout_seconds: row.timeout_seconds ?? 20,
     thinking_enabled: !!(row.thinking_enabled ?? 0),
+    system_prompt: String((row as any).system_prompt || ''),
+    system_prompt_default: DEFAULT_SYSTEM_PROMPT,
     enabled: !!row.enabled,
     is_active: !!row.is_active,
     created_at: row.created_at,
@@ -64,6 +85,7 @@ export interface LlmConfigInput {
   max_tokens?: number;
   timeout_seconds?: number;
   thinking_enabled?: boolean;
+  system_prompt?: string;
   enabled?: boolean;
 }
 
@@ -80,14 +102,15 @@ export function createConfig(input: LlmConfigInput) {
   const timeoutSeconds = Math.round(clampNumber(input.timeout_seconds, 1, 300, 20));
   const thinking = input.thinking_enabled === true ? 1 : 0;
   const enabled = input.enabled === false ? 0 : 1;
+  const systemPrompt = String(input.system_prompt ?? '').trim();
   const existing = db.prepare('SELECT 1 FROM llm_configs WHERE name = ?').get(name);
   if (existing) throw new Error('配置名称已存在');
   const result = db
     .prepare(
-      `INSERT INTO llm_configs (name, platform, base_url, api_key, model, temperature, max_tokens, timeout_seconds, thinking_enabled, enabled, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
+      `INSERT INTO llm_configs (name, platform, base_url, api_key, model, temperature, max_tokens, timeout_seconds, thinking_enabled, system_prompt, enabled, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
     )
-    .run(name, platform, baseUrl, apiKey, model, temperature, maxTokens, timeoutSeconds, thinking, enabled);
+    .run(name, platform, baseUrl, apiKey, model, temperature, maxTokens, timeoutSeconds, thinking, systemPrompt, enabled);
   return rowToPublic(getConfigRow(Number(result.lastInsertRowid))!);
 }
 
@@ -112,12 +135,27 @@ export function updateConfig(id: number, input: LlmConfigInput) {
       : row.timeout_seconds ?? 20;
   const thinking = input.thinking_enabled !== undefined ? (input.thinking_enabled ? 1 : 0) : row.thinking_enabled ?? 0;
   const enabled = input.enabled !== undefined ? (input.enabled ? 1 : 0) : row.enabled;
+  const systemPrompt =
+    input.system_prompt !== undefined ? String(input.system_prompt).trim() : String((row as any).system_prompt || '');
   db.prepare(
     `UPDATE llm_configs
        SET name = ?, platform = ?, base_url = ?, api_key = ?, model = ?, temperature = ?, max_tokens = ?,
-           timeout_seconds = ?, thinking_enabled = ?, enabled = ?, updated_at = datetime('now','localtime')
+           timeout_seconds = ?, thinking_enabled = ?, system_prompt = ?, enabled = ?, updated_at = datetime('now','localtime')
      WHERE id = ?`
-  ).run(name, platform, baseUrl, apiKey, model, temperature, maxTokens, timeoutSeconds, thinking, enabled, id);
+  ).run(
+    name,
+    platform,
+    baseUrl,
+    apiKey,
+    model,
+    temperature,
+    maxTokens,
+    timeoutSeconds,
+    thinking,
+    systemPrompt,
+    enabled,
+    id
+  );
   return rowToPublic(getConfigRow(id)!);
 }
 
@@ -466,11 +504,18 @@ export async function extractKeywordsWithLlm(text: string, userEmpNo: string): P
     (s) => s.standard
   );
   const userPrompt = buildExtractUserMessage(text, models, customers, standardHints);
-  // system 完全固定（一个字都不随请求变化），所有动态内容都在最后一条 user 消息里
+  // 第 39 轮：带上该配置的专业人设 system_prompt（空则用默认）。
+  // 人设属于配置级内容、不随单次请求变化，因此同一配置的缓存前缀仍稳定；
+  // 明确声明「本步只做条件抽取」，避免人设里的结构化输出/对话引导要求干扰 JSON 格式。
+  const systemPrompt =
+    getSystemPrompt(config) +
+    '\n\n【内部步骤：检索条件抽取】本步骤只输出上述 json，忽略人设中关于回复格式与对话引导的要求。' +
+    '\n' +
+    FIXED_SYSTEM_PROMPT;
   const body = buildBody(
     config,
     [
-      { role: 'system', content: FIXED_SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
     { jsonMode: true }
@@ -552,7 +597,7 @@ export async function extractKeywordsWithLlm(text: string, userEmpNo: string): P
       kind: 'extract',
       success: true,
       latency_ms: Date.now() - started,
-      prompt_chars: FIXED_SYSTEM_PROMPT.length + userPrompt.length,
+      prompt_chars: systemPrompt.length + userPrompt.length,
       completion_chars: content.length,
       cacheHit,
       cacheMiss,
@@ -570,7 +615,7 @@ export async function extractKeywordsWithLlm(text: string, userEmpNo: string): P
     success: false,
     error: errorMessage,
     latency_ms: Date.now() - started,
-    prompt_chars: FIXED_SYSTEM_PROMPT.length + userPrompt.length,
+    prompt_chars: systemPrompt.length + userPrompt.length,
     completion_chars: content.length,
     cacheHit,
     cacheMiss,
@@ -596,17 +641,19 @@ export async function chatWithPrompt(
   const config = getActiveConfig();
   if (!config || !config.api_key) return { ok: false, content: '', error: '未配置可用的大模型密钥' };
   const started = Date.now();
+  // 第 39 轮：配置的专业人设放最前，任务专用指令（聚合/追问）随后，二者共同作为 system。
+  const fullSystem = getSystemPrompt(config) + '\n\n' + systemPrompt;
   const body = buildBody(
     config,
     [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: fullSystem },
       { role: 'user', content: userPrompt },
     ],
     { jsonMode: false, maxTokens: options.maxTokens ?? 300 }
   );
   let last = await callOnce(config, body);
   if (!last.ok && /空白|空|截断/.test(last.error)) last = await callOnce(config, body);
-  const promptChars = systemPrompt.length + userPrompt.length;
+  const promptChars = fullSystem.length + userPrompt.length;
   logCall({
     config_id: config.id,
     platform: config.platform,
