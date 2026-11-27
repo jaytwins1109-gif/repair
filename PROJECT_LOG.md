@@ -77,6 +77,8 @@
 - **本地环境核查与安装（第 46/47 轮）**：第 46 轮只读确认当前副本无 `node_modules` / `dist` / `.git`、PATH 无 `node` / `npm` / `git`；第 47 轮已手工完成 Node 24.14.0 + npm 11.9.0 落盘并写入用户 PATH，Git 2.55.0 从本机 PortableGit 复制到 `C:\Users\卢\AppData\Local\Programs\Git` 并写入用户 PATH；三处依赖装齐（server 用 `--ignore-scripts` 绕过不必要的 node-gyp，`better-sqlite3` 自带 win32-x64 预编译二进制实测可用），前后端 `npm run build` 均通过。本项目不要求 CodeBuddy/VS Code 插件，只有跑 E2E 才需 `npx playwright install chromium`。
 - **模型配置弹窗限高与滚动（第 48 轮）**：`ModelsAdminPage.tsx` 弹窗改为 `max-h-[calc(100vh-2rem)]` 纵向 flex，标题与取消/保存固定，中间表单 `min-h-0 flex-1 overflow-y-auto overscroll-contain`，内容超高时出现内部滚动条而不再顶出视口；编译通过，构建 CSS 已确认包含对应规则。浏览器人工观感未由 AI 点测。
 - **三层意图识别（第 49 轮）**：Level 1 在 `intents.ts` 做 NFKC + 去标点/符号/空白的绝对清洗，白名单覆盖「你是」「你是谁」「你叫什么」「你能干嘛」「怎么用」等，带全角标点也本地命中、不查库不调模型；Level 2 在 `llm.ts` 的抽取 JSON 增加 `intent`（search/chitchat），`chat.ts` 依此分流——chitchat 直接返回预设文案不查案例库，search 才用提取条件查库；Level 3 在 LLM 关闭/失败/超限/解析失败时默认 `intent=search` 回退本地词典检索。Playwright（Edge 通道）四条指定用例全部通过。
+- **技术知识库图片支持（第 50 轮）**：后端上传放宽到 png/jpg/jpeg/webp 并复用 magic bytes 校验，图片 `file_type` 统一存 `image`；前端提示与 `accept` 加入图片，预览抽成共享 `ZoomImagePreview`（滚轮缩放+拖拽平移）供知识库与机型图纸复用；另修复截图里案例上传「品牌+型号」选项被误判未知机型的问题。Playwright 上传 PNG 到「上电时序」并验证大图缩放/拖拽、案例上传校验均通过。
+- **chitchat 渲染修复与推送重试（第 51 轮）**：`ChatPage.tsx` 只允许检索类意图渲染案例卡片、「未找到」兜底与弱相关列表，`chitchat` 绝不渲染；Playwright 断言输入「你是谁」后页面不含「知识库中未找到相似案例」。新增 `scripts/push-with-retry.ps1`（最多 5 次、每次间隔 2 秒、成功即停），已执行并贴出真实日志。
 
 ### 启动命令
 
@@ -168,7 +170,8 @@ $env:PORT = '3000'; npm run start   # CMD 用 set PORT=3000 && npm run start
 47. **第 45 轮状态**：技术知识库四个接口与 UI 已用独立库 + TMP 账号在生产单端口下 E2E 验证通过；docx 用最小 ZIP（含 `word/`）验证 magic bytes 识别，未用真实 Word 文档人工打开。Word/Excel/PPT 在线预览仍待未来接入微软/WPS API；全文检索按红线未做。
 48. **已解决（第 47 轮）**：Node 24.14.0 / npm 11.9.0 与 Git 2.55.0 已安装并写入用户 PATH（需重开终端或 IDE 才继承新 PATH）；三处依赖已装齐、前后端编译通过。仍待人工确认：当前副本无 `.git`，首次提交前需按规则贴出 `git status --short --untracked-files=all` 清单等用户点头；`npm run setup` 原脚本在 server 步骤会触发不必要的 `node-gyp rebuild` 并因缺 Python/MSVC 失败，本轮未改脚本，新机可用 `npm --prefix server install --ignore-scripts` 与 `npm --prefix client install --ignore-scripts` 代替。
 49. **已解决（第 48/49 轮）**：模型配置弹窗已限高并加内部滚动条；当前副本已 `git init`、首次 commit 清单已贴用户，第 49 轮按用户明确授权完成本地提交 `259889b`。
-50. **第 49 轮待办**：`git push origin master` 多次失败——`Failed to connect to github.com:443 ... Timed out` / `Recv failure: Connection was reset`，远端 `master` 仍停在 `9dbb10a`，本地 `259889b` 尚未推送。网络恢复或配置好 HTTPS 凭据后需重跑推送；本轮未使用用户账号、未登出、未触碰开发库与四类配置表。
+50. **已定位（第 50/51 轮）**：第 49 轮的 443 超时/连接重置本机已恢复；第 51 轮用重试脚本实测 5 次均失败，真实原因变为 HTTPS 凭据缺失（`fatal: could not read Username for 'https://github.com': terminal prompts disabled`），远端 `master` 仍停在 `9dbb10a`，本地 5 个提交全部未推送。
+51. **第 50/51 轮待办**：需用户配置 GitHub HTTPS 凭据（推荐 PAT 或 Git Credential Manager 登录），然后执行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/push-with-retry.ps1`；已按用户提供的 `jaytwins1109-gif` / `jaytwins1109@gmail.com` 设置本仓库 `user.name`/`user.email`，但这只决定提交署名，不等于推送凭据。
 
 ---
 
@@ -1418,3 +1421,144 @@ RESTORE_OK=true  RESTORE_EXIT=0
 **未验证 / 未执行（如实）**：Level 3 的真实断网/欠费场景未制造（只验证了 LLM 总开关关闭的本地路径与代码分支）；真实上游 402 欠费仍未制造；Playwright Chromium 内核未安装，改用 Edge 通道；浏览器人工点测未做；推送未成功，远端尚未收到本轮提交。
 
 **遗留问题 / 需人工确认**：见未解决问题第 50 项；请在 GitHub HTTPS 可连通且凭据可用后重跑 `git push origin master`，把本地 `259889b` 与随后日志归档提交一并推送。
+
+---
+
+### 第 50 轮 · 2026-11-28 — 技术知识库支持图片上传/缩放预览，并修复案例上传机型校验
+
+**用户要求**：截图反馈「上传维修案例」填了「华为 2288H V5」却提示“型号请从下拉列表中选择已有机型”；同时要求技术知识库在 Office/PDF 之外支持 PNG/JPG/JPEG/WEBP 原理图、上电时序图、架构拓扑图截图，后端按 magic bytes 校验、图片 `file_type=image`，前端提示/accept 适配并复用第 42 轮机型图纸的缩放平移预览组件，图片操作列显示「预览」「下载」；编译、Playwright 上传 PNG 到「上电时序」并断言预览、commit/push。
+
+**实际改动文件**：
+- `server/src/middleware/upload.ts`：知识库扩展名与 MIME 集合加入图片；`knowledgeFileFilter` 与失败提示更新；`detectKnowledgeType()` 复用 `detectImageMime()` 识别真实 PNG/JPEG/WEBP（不信任扩展名与客户端 mimetype）。
+- `server/src/services/knowledgeDocs.ts`：`file.mimetype.startsWith('image/')` 时 `file_type` 统一存 `image`，其它仍存真实扩展名。
+- `client/src/components/ZoomImagePreview.tsx`（新）：从机型图纸抽出的共享大图预览，提供放大/缩小/重置、滚轮缩放、拖拽平移、Esc 关闭。
+- `client/src/components/ModelAssetDrawer.tsx`：移除本地 `react-zoom-pan-pinch` 代码，图片分支改用共享组件，PDF 仍用 iframe。
+- `client/src/pages/KnowledgePage.tsx`：上传提示改为「文件 * (PDF / Word / Excel / PPT / 图片，最大 50MB)」，`accept` 加 `image/*`；`openPreview` 放行 `image`；操作列图片显示「预览」+「下载」；侧栏说明注明图片可在线预览；图片走共享缩放组件。
+- `client/src/components/UploadCaseModal.tsx`：型号校验同时接受 `m.model`、`品牌 + 型号` 及去空格写法，修复截图里的误报。
+- `client/e2e/r50-knowledge-image-e2e.mjs`（新）：独立副本 + TMP 账号 + Edge 通道 E2E。
+- **未改**：四类配置表、开发库、检索打分与弱相关红线、git 全局配置。
+
+**关键实现思路与原因**：图片校验直接复用第 42 轮已验证过的 `detectImageMime()`，避免引入新依赖；`verifyUploadedKnowledgeDocs()` 会把后缀与 mimetype 覆盖为真实类型，入库再按 `image/` 前缀归一 `file_type`，保证前端只判 `image` 即可。缩放预览抽成共享组件，机型图纸与知识库图片行为一致，避免两份复制代码漂移。案例上传的 datalist 展示值本来就是「品牌 + 型号」，校验却只比 `m.model`，属于前后不一致，补上双形态匹配即可，不改变必选机型的业务约束。
+
+**实际验证过的命令与结果（四段式）**：
+
+1. **测什么**：改动能否完整编译。
+   **怎么测**：`Set-Location 'd:\codebuddy\repair-master'; npm run build`。
+   **实际输出**：server `tsc` 无错误；client `✓ 58 modules transformed`、`CSS 35.75 kB`、`JS 362.19 kB`、`✓ built in 1.73s`、`exitCode=0`；6 个源码文件 `read_lints` 0 错误。
+   **结论**：通过。
+2. **测什么**：PNG 上传、入库类型、操作列与缩放预览是否真实可用；案例上传品牌+型号是否通过校验。
+   **怎么测**：`cd client && node e2e/r50-knowledge-image-e2e.mjs`，独立库副本 + TMPR50ENG + 生产入口 PORT=30150 + Playwright Edge 通道。
+   **实际输出**：
+   ```text
+   UPLOAD_RESPONSE={"code":0,"file_type":"image","file_name":"上电时序样图.png","id":1}
+   DB_DOC={"id":1,"category":"上电时序","title":"R50 上电时序截图","file_name":"上电时序样图.png","file_type":"image","size":64}
+   ASSERT_1_UPLOAD_PNG_IMAGE=true
+   ROW_ACTIONS={"preview":1,"download":1}
+   ASSERT_2_IMAGE_ACTIONS=true
+   ZOOM_TOOLBAR={"zoomIn":1,"zoomOut":1,"reset":1}
+   TRANSFORMS={"t0":"translate(647.5px, 440.5px) scale(1)","t1":"translate(140px, 360px) scale(8)","t2":"translate(220px, 410px) scale(8)"}
+   ASSERT_3_ZOOM_PAN_PREVIEW=true
+   CASE_UPLOAD={"model":"惠普 DL360 Gen10","code":0,"message":"案例与图片已提交","id":34}
+   ASSERT_4_MODEL_WITH_BRAND=true
+   ALL_ASSERTIONS=[true,true,true,true]
+   E2E_PASS=true
+   FINAL_CONSOLE_ERRORS=[]
+   COPY_DIR_DELETED=true
+   TMP_ACCOUNT_SCRIPT_DELETED=true
+   ```
+   **结论**：四条断言全部通过；缩放后 transform 从 `scale(1)` 变为 `scale(8)`，拖拽后位移再次变化，证明组件真实生效。
+3. **测什么**：测试隔离与红线。
+   **怎么测**：脚本用 `verify-copy.mjs --db=<副本绝对路径>`，账号脚本受 `verify-guard.mjs` 守卫，finally 删除副本目录。
+   **实际输出**：`COPY_DIR_DELETED=true`、`TMP_ACCOUNT_SCRIPT_DELETED=true`；未使用用户账号、未登出、未写 `llm_configs`/`settings`/`symptom_dict`/`model_alias`，开发库业务数据未写。
+   **结论**：通过。
+4. **测什么**：归档与推送。
+   **怎么测**：`git add -A` 后核对暂存区仅 7 个代码/E2E 文件（无数据库/附件/密钥），用本仓库身份 `jaytwins1109-gif <jaytwins1109@gmail.com>` 提交。
+   **实际输出**：本地提交 `15645d8`（7 files / 365 insertions / 75 deletions）；当时推送尝试因工具空闲超时与用户取消未完成。
+   **结论**：本地 commit 成功，push 延后到第 51 轮重试脚本统一处理。
+
+**未验证 / 未执行（如实）**：未用真实扫描件人工观感确认；未验证 JPG/JPEG/WEBP 三种图片的浏览器上传（只验证 PNG 与共用 magic bytes 函数）；Playwright Chromium 未安装，使用 Edge 通道；本轮未单独执行 push。
+
+**遗留问题 / 需人工确认**：见未解决问题第 50/51 项。
+
+---
+
+### 第 51 轮 · 2026-11-28 — chitchat 气泡不再渲染未找到兜底，新增推送重试脚本
+
+**用户要求**：截图发现输入「你是？」「可以聊聊？」时，气泡已正确返回 `intent=chitchat` 指引文案，但下方仍渲染「知识库中未找到相似案例，建议上传现场记录。」灰框；要求前端只允许 `intent === 'search'` 渲染案例列表与兜底/弱相关，chitchat 绝对不渲染；另写 PowerShell/CMD 重试推送脚本（最多 5 次、失败后等 2 秒、成功即停、全失败输出错误），执行并贴真实日志；build + Playwright 断言 + commit。
+
+**实际改动文件**：
+- `client/src/pages/ChatPage.tsx`：新增 `resultIntentOf()`，把历史/兼容的 `aggregate`、`followup` 归一为检索类 `search`，案例卡片与「未找到」兜底、弱相关 `<details>` 整块包在 `resultIntentOf(m) === 'search'` 条件内；`chitchat` 只保留文案与「对话指引」徽章。
+- `client/e2e/r51-chitchat-render-e2e.mjs`（新）：独立副本 + TMP 账号 + Edge 通道，输入「你是谁」「你是？」「可以聊聊？」逐条断言 `intent=chitchat`、无案例、页面无「知识库中未找到相似案例」、无「弱相关，仅供参考」、徽章存在、缓存无增量。
+- `scripts/push-with-retry.ps1`（新）：PowerShell 重试脚本，参数化仓库/远端/分支/次数/间隔；默认 `origin/master`、5 次、2 秒；使用 `-c http.lowSpeedLimit=1000 -c http.lowSpeedTime=10` 避免长时间挂起；成功 `exit 0`，5 次全失败 `exit 1`。
+- `PROJECT_LOG.md`：摘要、未解决清单与本轮记录。
+- **未改**：后端意图链路、检索打分、四类配置表、开发库。
+
+**关键实现思路与原因**：chitchat 的 `cases=[]` 会落进旧的「无主案例 → 显示未找到」分支，根因是渲染层只看 `cases.length`，不看意图。新增意图归一化而不是删掉 aggregate/followup 的案例区，既满足「chitchat 绝不渲染」，又避免历史消息与多轮追问丢失案例展示；代码里的渲染开关严格以归一化后的 `search` 为准。
+
+**实际验证过的命令与结果（四段式）**：
+
+1. **测什么**：渲染改动能否完整编译。
+   **怎么测**：`npm run build` + `read_lints`。
+   **实际输出**：server `tsc` 无错误；client `✓ 58 modules transformed`、`CSS 35.75 kB`、`JS 362.31 kB`、`✓ built in 1.70s`、`exitCode=0`；3 个改动文件 0 lint 错误。
+   **结论**：通过。
+2. **测什么**：chitchat 页面是否真的不出现「未找到」与弱相关。
+   **怎么测**：`cd client && node e2e/r51-chitchat-render-e2e.mjs`（PORT=30151，独立副本，TMPR51ENG）。
+   **实际输出（首轮断言写错后已修正并重跑）**：
+   ```text
+   BASELINE_SEARCH_CACHE=2
+   CHAT={"question":"你是谁","intent":"chitchat","source":"rule","cases":0,"pageHasNoMatchText":false,"pageHasWeakGroup":false,"guideBadge":1}
+   CHAT={"question":"你是？","intent":"chitchat","source":"rule","cases":0,"pageHasNoMatchText":false,"pageHasWeakGroup":false,"guideBadge":2}
+   CHAT={"question":"可以聊聊？","intent":"chitchat","source":"ai","cases":0,"pageHasNoMatchText":false,"pageHasWeakGroup":false,"guideBadge":3}
+   AFTER_SEARCH_CACHE=2
+   ALL_ASSERTIONS=[true,true,true]
+   ASSERT_NO_FALLBACK_FOR_你是谁=true
+   ASSERT_NO_WEAK_GROUP=true
+   ASSERT_NO_DB_SEARCH=true
+   FINAL_CONSOLE_ERRORS=[]
+   E2E_PASS=true
+   COPY_DIR_DELETED=true
+   TMP_ACCOUNT_SCRIPT_DELETED=true
+   ```
+   首轮曾因把「source 必须 rule」和「缓存必须为 0」写死而报 `ALL_ASSERTIONS=[true,true,false]`；实测「可以聊聊？」按第 49 轮设计走 LLM chitchat，副本原本已有 2 条 search_cache，均非渲染缺陷，已改为允许 rule/ai 并断言缓存无增量后重跑通过。
+   **结论**：通过，用户指定文案未出现在页面。
+3. **测什么**：推送重试脚本是否按规则执行并输出真实日志。
+   **怎么测**：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/push-with-retry.ps1`。
+   **实际输出**：5 次尝试均执行，间隔 2 秒，脚本在全部失败后停止并 `exit 1`；每次均输出 `fatal: could not read Username for 'https://github.com': terminal prompts disabled`（Credential Manager 弹窗被环境取消），日志见本轮交付与未解决问题第 50/51 项。
+   **结论**：脚本行为符合要求；推送失败的根因是 HTTPS 凭据缺失，不是脚本重试逻辑问题。
+4. **测什么**：git 归档。
+   **怎么测**：`git add -A` 后核对暂存区仅 3 个文件（E2E、ChatPage、推送脚本），`git commit`。
+   **实际输出**：本地提交 `1a459a6`（3 files / 228 insertions / 22 deletions）；已按用户提供的账号设置本仓库 `user.name=jaytwins1109-gif`、`user.email=jaytwins1109@gmail.com`（仅署名，不是推送凭据）。
+   **结论**：本地 commit 成功，push 失败待凭据配置。
+
+**未验证 / 未执行（如实）**：未用用户已有的浏览器会话做人工点测；未验证 GitHub PAT/Credential Manager 登录后的成功推送；Log 中 5 次失败均为凭据缺失，非 443 超时。推送日志原样如下：
+
+```text
+[2026-11-28 00:51:10] 开始推送：d:\codebuddy\repair-master -> origin/master，最多 5 次，每次间隔 2 秒
+[2026-11-28 00:51:10] 第 1/5 次尝试：git push origin master
+[2026-11-28 00:51:26]   fatal: User cancelled dialog.
+[2026-11-28 00:51:26]   fatal: could not read Username for 'https://github.com': terminal prompts disabled
+[2026-11-28 00:51:26] 推送失败：第 1 次尝试 exit=128
+[2026-11-28 00:51:26] 等待 2 秒后重试...
+[2026-11-28 00:52:44] 第 2/5 次尝试：git push origin master
+[2026-11-28 00:52:44]   fatal: User cancelled dialog.
+[2026-11-28 00:52:44]   fatal: could not read Username for 'https://github.com': terminal prompts disabled
+[2026-11-28 00:52:44] 推送失败：第 2 次尝试 exit=128
+[2026-11-28 00:52:44] 等待 2 秒后重试...
+[2026-11-28 00:52:46] 第 3/5 次尝试：git push origin master
+[2026-11-28 00:52:52]   fatal: User cancelled dialog.
+[2026-11-28 00:52:52]   fatal: could not read Username for 'https://github.com': terminal prompts disabled
+[2026-11-28 00:52:52] 推送失败：第 3 次尝试 exit=128
+[2026-11-28 00:52:52] 等待 2 秒后重试...
+[2026-11-28 00:52:54] 第 4/5 次尝试：git push origin master
+[2026-11-28 00:53:11]   fatal: User cancelled dialog.
+[2026-11-28 00:53:11]   fatal: could not read Username for 'https://github.com': terminal prompts disabled
+[2026-11-28 00:53:11] 推送失败：第 4 次尝试 exit=128
+[2026-11-28 00:53:11] 等待 2 秒后重试...
+[2026-11-28 00:53:13] 第 5/5 次尝试：git push origin master
+[2026-11-28 00:53:23]   fatal: User cancelled dialog.
+[2026-11-28 00:53:23]   fatal: could not read Username for 'https://github.com': terminal prompts disabled
+[2026-11-28 00:53:23] 推送失败：第 5 次尝试 exit=128
+[2026-11-28 00:53:23] 5 次全部失败，停止重试。最后一次 git push 输出已如上显示。
+```
+
+**遗留问题 / 需人工确认**：见未解决问题第 50/51 项；配置 GitHub HTTPS 凭据后重跑推送脚本即可把本地 5 个提交推上去。
