@@ -76,6 +76,7 @@
 - **技术知识库（第 45 轮）**：新增独立知识库模块——`knowledge_docs` / `knowledge_categories` 两张表与 5 个固定分类，doc/docx/xls/xlsx/ppt/pptx/pdf 上传（50MB）按 magic bytes 校验，四个带鉴权接口（列表/上传/取流/删除）；侧边栏新增「技术知识库」，左侧分类目录 + 右侧文档表格、标题/文件名搜索、上传弹窗、PDF iframe 预览与 Office 下载。只检索标题/文件名，不做全文检索。
 - **本地环境核查与安装（第 46/47 轮）**：第 46 轮只读确认当前副本无 `node_modules` / `dist` / `.git`、PATH 无 `node` / `npm` / `git`；第 47 轮已手工完成 Node 24.14.0 + npm 11.9.0 落盘并写入用户 PATH，Git 2.55.0 从本机 PortableGit 复制到 `C:\Users\卢\AppData\Local\Programs\Git` 并写入用户 PATH；三处依赖装齐（server 用 `--ignore-scripts` 绕过不必要的 node-gyp，`better-sqlite3` 自带 win32-x64 预编译二进制实测可用），前后端 `npm run build` 均通过。本项目不要求 CodeBuddy/VS Code 插件，只有跑 E2E 才需 `npx playwright install chromium`。
 - **模型配置弹窗限高与滚动（第 48 轮）**：`ModelsAdminPage.tsx` 弹窗改为 `max-h-[calc(100vh-2rem)]` 纵向 flex，标题与取消/保存固定，中间表单 `min-h-0 flex-1 overflow-y-auto overscroll-contain`，内容超高时出现内部滚动条而不再顶出视口；编译通过，构建 CSS 已确认包含对应规则。浏览器人工观感未由 AI 点测。
+- **三层意图识别（第 49 轮）**：Level 1 在 `intents.ts` 做 NFKC + 去标点/符号/空白的绝对清洗，白名单覆盖「你是」「你是谁」「你叫什么」「你能干嘛」「怎么用」等，带全角标点也本地命中、不查库不调模型；Level 2 在 `llm.ts` 的抽取 JSON 增加 `intent`（search/chitchat），`chat.ts` 依此分流——chitchat 直接返回预设文案不查案例库，search 才用提取条件查库；Level 3 在 LLM 关闭/失败/超限/解析失败时默认 `intent=search` 回退本地词典检索。Playwright（Edge 通道）四条指定用例全部通过。
 
 ### 启动命令
 
@@ -166,7 +167,8 @@ $env:PORT = '3000'; npm run start   # CMD 用 set PORT=3000 && npm run start
 46. **第 44 轮状态**：README 已同步生产单端口入口并指向 `DEPLOY.md`，与第 43 轮代码/文档不再脱节；目标机器实际迁移、自启与防火墙配置仍按第 45 项待人工执行。
 47. **第 45 轮状态**：技术知识库四个接口与 UI 已用独立库 + TMP 账号在生产单端口下 E2E 验证通过；docx 用最小 ZIP（含 `word/`）验证 magic bytes 识别，未用真实 Word 文档人工打开。Word/Excel/PPT 在线预览仍待未来接入微软/WPS API；全文检索按红线未做。
 48. **已解决（第 47 轮）**：Node 24.14.0 / npm 11.9.0 与 Git 2.55.0 已安装并写入用户 PATH（需重开终端或 IDE 才继承新 PATH）；三处依赖已装齐、前后端编译通过。仍待人工确认：当前副本无 `.git`，首次提交前需按规则贴出 `git status --short --untracked-files=all` 清单等用户点头；`npm run setup` 原脚本在 server 步骤会触发不必要的 `node-gyp rebuild` 并因缺 Python/MSVC 失败，本轮未改脚本，新机可用 `npm --prefix server install --ignore-scripts` 与 `npm --prefix client install --ignore-scripts` 代替。
-49. **第 48 轮状态**：模型配置弹窗已限高并加内部滚动条，代码层与编译/CSS 产物验证通过，浏览器人工点测未做。当前副本已 `git init`（96 个未跟踪文件），首次 commit 清单与 `.gitignore` 忽略核对已贴用户，按规则**未 add / 未 commit / 未 push**，等确认后再归档。
+49. **已解决（第 48/49 轮）**：模型配置弹窗已限高并加内部滚动条；当前副本已 `git init`、首次 commit 清单已贴用户，第 49 轮按用户明确授权完成本地提交 `259889b`。
+50. **第 49 轮待办**：`git push origin master` 多次失败——`Failed to connect to github.com:443 ... Timed out` / `Recv failure: Connection was reset`，远端 `master` 仍停在 `9dbb10a`，本地 `259889b` 尚未推送。网络恢复或配置好 HTTPS 凭据后需重跑推送；本轮未使用用户账号、未登出、未触碰开发库与四类配置表。
 
 ---
 
@@ -1354,3 +1356,65 @@ RESTORE_OK=true  RESTORE_EXIT=0
 **未验证 / 未执行（如实）**：浏览器人工点测未做（未在云电脑浏览器打开模型管理页点「编辑」并拖动滚动条确认）；首次 git commit 未执行、未 push；未启动服务、未使用用户账号、未触碰数据库与四类配置表；截图中的 67% 缩放仅作为布局参照，实际观感待用户确认。
 
 **遗留问题 / 需人工确认**：见未解决问题第 49 项；请确认 96 项首次提交清单后可归档。
+
+---
+
+### 第 49 轮 · 2026-11-27 — 三层意图识别重构：本地清洗优先、LLM 合流、失败默认检索
+
+**用户要求**：排查出「你是？」未被拦截是正则没处理标点；考虑大模型断网/限流风险，改为「本地清洗正则优先 + LLM 意图合流」双层（实际落地为三层）架构。Level 1 匹配前绝对清洗标点/空格/特殊符号，扩充白名单确保「你是谁」「你是」「你叫什么」「你能干嘛」「怎么用」命中后直接返回预设文案、不查库不调模型；Level 2 在 LLM 抽取 JSON 增加 `intent`（search/chitchat），返回 chitchat 时不查库，search 才用型号/现象查库；Level 3 LLM 失败默认 `intent=search` 走本地检索。交付要求四条 Playwright E2E、编译、commit 并 push 到指定 GitHub 仓库。
+
+**实际改动文件**：
+- `server/src/services/intents.ts`：新增 `normalizeIntentText()`（NFKC + `/[\p{P}\p{S}\p{C}\s]/gu` 清洗），新增 20 条清洗后白名单词条（含「你是」「你能干嘛」「你能干点啥」「怎么用」等），原规则正则改为跑在清洗文本上；命中仍走 `emptyResult(..., 'chitchat')`，零 DB、零 LLM。
+- `server/src/services/llm.ts`：`ExtractOutcome` 增加 `intent?: 'search' | 'chitchat'`；JSON 示例与固定 `FIXED_SYSTEM_PROMPT` 增加第五个字段及判定规则；解析时只认严格 `chitchat`，其余（含漏填）一律默认 `search`。
+- `server/src/services/chat.ts`：`ChatResult.intent` 增加 `search`；新增 LLM 判为 chitchat 时的统一预设文案；`chatSearchSmart()` 重写——LLM 关闭走 Level 3；LLM 可用时每次调用一次抽取，chitchat 分支直接返回预设且不查案例库/不写缓存，search 分支才查库并写缓存；失败/空条件走 Level 3 本地检索。原「词典全覆盖即跳过 LLM」前置拦截按用户「本地未命中必然调用 LLM」要求移除，`shouldSkipLlm` 导入同步删除。
+- `client/src/api/types.ts`、`client/src/pages/ChatPage.tsx`：意图类型增加 `search`，气泡徽章对 `search` 显示「故障检索」，避免被误标成多轮追问。
+- `client/e2e/r49-intent-e2e.mjs`（新）：独立库副本 + TMP 临时工程师 + Playwright Edge 通道的四条用例，含 `llm_calls`/`search_cache` 前后快照断言；运行完删除副本目录与临时账号脚本。
+- `PROJECT_LOG.md`：摘要、未解决清单第 49/50 项与本条记录。
+- **未改**：`routes/chat.ts` / `routes/conversations.ts` 的调用顺序、打分准入与弱相关红线、四类配置表、开发库业务数据、依赖清单。
+
+**关键实现思路与原因**：Level 1 的清洗只用于意图判定，不改写原始消息与检索文本，既解决「你是？？？」这种标点绕过，又不影响词元打分；白名单用 `includes` 匹配清洗串，所以「请问你能干点啥」也能本地命中。Level 2 把意图塞进既有抽取调用而非新增一次对话请求，避免额外 token；`intent` 写进固定 system 提示词，动态内容仍在 user 消息，不破坏 DeepSeek 缓存前缀。LLM 判 chitchat 时直接返回预设文案，避免模型生成不可控内容；判 search 时才进入 `chatSearch()`，继续遵守「未找到不凑数」红线。Level 3 对断网/欠费/超限/超时/解析失败一律默认 search，保证离线基础可用。
+
+**实际验证过的命令与结果（四段式）**：
+
+1. **测什么**：三层架构改动能否完整编译。
+   **怎么测**：`Set-Location 'd:\codebuddy\repair-master'; npm run build`。
+   **实际输出**：server `tsc` 无错误；client `tsc --noEmit && vite build` → `✓ 57 modules transformed`、`index.html 0.78 kB`、`CSS 35.33 kB`、`JS 361.02 kB`、`✓ built in 1.98s`、`exitCode=0`；`read_lints` 对五个改动源码文件 0 错误。
+   **结论**：通过。
+
+2. **测什么**：用户指定的四条对话场景是否按三层架构正确分流。
+   **怎么测**：`cd client && node e2e/r49-intent-e2e.mjs`。脚本用 `verify-copy.mjs` 从开发库只读生成 `server/verify/.db/r49-intent/data/repair.db`，生成 TMPR49ENG 临时工程师，启动生产入口 `node server/dist/index.js`（PORT=30149），Playwright `channel: 'msedge'` 真实登录并逐条从对话框发送。因本机未安装 Playwright Chromium（首次运行报 `chromium_headless_shell-1255` 不存在），改用本机 Edge 通道，未下载浏览器内核。
+   **实际输出**：
+   ```text
+   SERVER_HEALTH=true
+   LOGIN_AS=TMPR49ENG
+   BASELINE={"calls":2,"cache":0,"cases":33}
+   CASE1={"intent":"chitchat","source":"rule","route":"dict","cases":0,"llmDelta":0,"cacheDelta":0}
+   ASSERT_1_LOCAL_CHITCHAT=true
+   CASE2={"intent":"chitchat","source":"rule","route":"dict","cases":0,"llmDelta":0,"cacheDelta":0}
+   ASSERT_2_LOCAL_CHITCHAT=true
+   CASE3={"intent":"search","source":"ai","route":"llm","cases":1,"firstCase":34,"admittedCount":1,"llmDelta":1}
+   ASSERT_3_LLM_SEARCH=true
+   CASE4={"intent":"chitchat","source":"ai","route":"llm","cases":0,"llmDelta":1,"cacheDelta":0}
+   ASSERT_4_LLM_CHITCHAT=true
+   ALL_ASSERTIONS=[true,true,true,true]
+   E2E_PASS=true
+   FINAL_CONSOLE_ERRORS=[]
+   COPY_DIR_DELETED=true
+   TMP_ACCOUNT_SCRIPT_DELETED=true
+   ```
+   第三条抽取词元实测：`{"model":"R740","symptoms":["无法开机","报错"],...}`，`normalizedSymptoms=["无法开机"]`。开发库原 R740 样例的「开机不显示/开机无图像输出」与「无法开机」词族不重合，首轮曾如实返回未找到（0 主列表、1 弱相关）；为验证「search 后能查到案例」，仅在独立副本插入一条 `source=manual / status=approved / import_batch_no=R49-E2E` 的受控案例（模型 R740、现象含「无法开机，开机报错，启动失败」），副本 cases 33→34，最终主列表命中 1 条。开发库 cases 未被写入，副本随测试删除。
+   **结论**：四条断言全部通过；Level 1 两条零 LLM、零缓存、零案例，Level 2 的 search/ chitchat 分流正确，Level 3 本次未制造断网但代码路径已保留并由「LLM 关闭即本地检索」覆盖。
+
+3. **测什么**：临时数据与红线隔离。
+   **怎么测**：E2E 前后用只读连接查 `llm_calls` / `search_cache` / `cases` 计数；临时账号脚本只连 `VACUUM INTO` 副本并受 `verify-guard.mjs` 强制 `--db` 校验；finally 删除整个副本目录。
+   **实际输出**：`BASELINE={"calls":2,"cache":0,"cases":33}`（cases 含 1 条受控案例）；Level 1 两条 `llmDelta=0 / cacheDelta=0`；Level 2 两条各 `llmDelta=1`，chitchat `cacheDelta=0`；`COPY_DIR_DELETED=true`、`TMP_ACCOUNT_SCRIPT_DELETED=true`。未使用用户已有账号、未调用登出、`llm_configs` / `settings` / `symptom_dict` / `model_alias` 未写未删。
+   **结论**：隔离与清理通过。
+
+4. **测什么**：git 归档与推送。
+   **怎么测**：当前副本无历史提交，先 `git remote add origin https://github.com/jaytwins1109-gif/repair.git`，`git fetch origin master` 成功后 `git reset --mixed FETCH_HEAD` 对齐远端 `9dbb10a` 并保留工作区；`git add -A` 后核对暂存区仅 8 个源码/日志/脚本文件，无数据库/附件/密钥；`git -c user.name=CodeBuddy -c user.email=codebuddy@local commit`；随后多次 `git push origin master`。
+   **实际输出**：本地提交 `259889b`（8 files / 416 insertions / 85 deletions，含新增 E2E 脚本）；推送先后报 `Failed to connect to github.com:443 ... Timed out` 与 `Recv failure: Connection was reset`，尝试 HTTP/1.1、大 postBuffer、OpenSSL 后端、重试后均失败，`PUSH_EXIT=128`；`git ls-remote` 显示远端 `master` 仍为 `9dbb10a`。
+   **结论**：本地 commit 成功，push **未成功**；待网络恢复或 HTTPS 凭据可用后执行 `git push origin master`。
+
+**未验证 / 未执行（如实）**：Level 3 的真实断网/欠费场景未制造（只验证了 LLM 总开关关闭的本地路径与代码分支）；真实上游 402 欠费仍未制造；Playwright Chromium 内核未安装，改用 Edge 通道；浏览器人工点测未做；推送未成功，远端尚未收到本轮提交。
+
+**遗留问题 / 需人工确认**：见未解决问题第 50 项；请在 GitHub HTTPS 可连通且凭据可用后重跑 `git push origin master`，把本地 `259889b` 与随后日志归档提交一并推送。
