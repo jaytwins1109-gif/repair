@@ -1204,6 +1204,6 @@ RESTORE_OK=true  RESTORE_EXIT=0
      ```
    - **结论**：生产单端口模式下前端静态资源、深链接回退、登录、案例检索、图纸 PDF 预览全部断言为真，页面无 JS 错误。`FINAL_FAILED_REQUESTS` 只有一条 `blob:... net::ERR_ABORTED`，发生在浏览器关闭时浏览器主动中断 blob 读取，非业务失败。
 4. 隔离与清理：`verify-copy.mjs` 从开发库只读 VACUUM INTO；TMP 账号与上传文件只写副本（生产进程 cwd 设为副本目录，`data/uploads/backups` 全落在副本内）；未使用用户账号、未登出、未写开发库；副本目录与两个临时脚本均删除（`COPY_DIR_DELETED=true` 等三条实测为真）。提交前 `git status --short --untracked-files=all` 清单：`M package.json`、`M server/src/index.ts`、`?? DEPLOY.md`（本日志补写后另加 `M PROJECT_LOG.md`），无数据库/附件/密钥/截图入库。
-5. Git 归档与 push：本条记录写完后执行 `git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit` + `git push origin master`，实际哈希与输出随后补记，不提前写结论。
+5. Git 归档与 push：`git add -A` + `git -c user.name=CodeBuddy -c user.email=codebuddy@local commit -m "生产部署：单端口静态托管、根 build/start 脚本与 DEPLOY.md"` → `500a5bc`（`DEPLOY.md` +241、`PROJECT_LOG.md` +63、`package.json` +4/-1、`server/src/index.ts` +19，共 4 files / 325 insertions / 2 deletions）；首次 `git push origin master` 因 PowerShell 条件判断未执行，复核 `## master...origin/master [ahead 1]` 后单独重跑 `git push origin master` → `To github.com:jaytwins1109-gif/repair.git / 2700ef2..500a5bc  master -> master`，`PUSH_EXIT=0`。本条补记随后单独归档推送。
 
 **未验证 / 未执行（如实）**：`DEPLOY.md` 里的 PM2 与 Windows 任务计划程序自启、`netsh`/`ufw` 防火墙放行、robocopy 备份计划任务均只写成操作步骤，**未在本机或另一台内网电脑实际执行**；另一台电脑的真实迁移与局域网访问仍需用户按手册验收；上线前修改默认密码、填写 API Key 是人工动作，本轮未代做。headless 截图中的 PDF 插件区域仍为空白（第 42 轮已确认的 Chromium 限制），以 blob URL + `application/pdf` 类型作为渲染断言；`npm run start` 包装脚本未单独实跑，但 `build` 已验证同一 `--prefix` 机制，生产入口 `node server/dist/index.js` 已实跑。
