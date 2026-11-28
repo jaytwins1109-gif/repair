@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { rateLimit } from 'express-rate-limit';
 import fs from 'node:fs';
 import path from 'node:path';
 import './db';
@@ -36,8 +37,36 @@ console.log('[backup]', startupBackup);
 
 const app = express();
 
-app.use(cors());
+// 第 54 轮：内网单端口部署，只允许本机与局域网来源跨域访问
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (/^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('受 CORS 限制，不允许访问'));
+  },
+}));
+
+// 第 54 轮：全局 API 限流 300 次/分钟，登录单独收紧到 5 次/分钟防爆破
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: (_req, res) => fail(res, '请求过于频繁，请稍后再试', 429, 429),
+});
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: (_req, res) => fail(res, '登录请求过于频繁，请稍后再试', 429, 429),
+});
+
 app.use(express.json({ limit: '1mb' }));
+app.use('/api', apiLimiter);
+app.use('/api/auth/login', loginLimiter);
 
 app.get('/api/health', (_req, res) =>
   ok(res, { status: 'ok', time: new Date().toISOString() })

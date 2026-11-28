@@ -20,8 +20,8 @@ declare global {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const queryToken = typeof req.query.token === 'string' ? req.query.token : undefined;
-  const user = getUserByToken(tokenFromHeader(req.headers.authorization) || queryToken);
+  // 第 54 轮：只允许 Authorization: Bearer <token>，不再从 URL Query 读取凭证，避免泄漏到历史/日志
+  const user = getUserByToken(tokenFromHeader(req.headers.authorization));
   if (!user) {
     return fail(res, '登录状态已失效，请重新登录', 401, 401);
   }
