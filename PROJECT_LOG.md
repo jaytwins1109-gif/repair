@@ -81,6 +81,7 @@
 - **chitchat 渲染修复与推送重试（第 51 轮）**：`ChatPage.tsx` 只允许检索类意图渲染案例卡片、「未找到」兜底与弱相关列表，`chitchat` 绝不渲染；Playwright 断言输入「你是谁」后页面不含「知识库中未找到相似案例」。新增 `scripts/push-with-retry.ps1`（最多 5 次、每次间隔 2 秒、成功即停），已执行并贴出真实日志。
 - **推送成功（第 52 轮）**：重跑 `scripts/push-with-retry.ps1`，第 1 次即成功，`9dbb10a..a0648b4 master -> master`；`git ls-remote origin refs/heads/master` 与本地 HEAD 同为 `a0648b4d0e0c2f3b153d0593596eee8120428195`，工作区干净。
 - **知识库角色收紧（第 53 轮）**：`POST /api/knowledge-docs` 与 `DELETE /api/knowledge-docs/:id` 加 `requireRole('engineer')`，技术员调用返回 403；前端按 `role === 'engineer'` 控制上传/删除按钮，技术员只保留预览/下载。双角色 Playwright E2E 全部通过，`5954b92..176b750 master -> master` 推送成功。
+- **安全加固（第 54 轮）**：`requireAuth` 删除 Query Token 分支，只允许 `Authorization: Bearer`；CORS 从全开放收紧为本机/192.168/10 网段白名单；新增 `express-rate-limit`，全局 `/api` 300 次/分钟、登录 5 次/分钟。`tsc --noEmit`、`npm run build` 与双阶段 E2E（第 6 次错误密码 429、CORS 拒绝、Query Token 401、登录/对话/图片上传/PDF 预览回归）全部通过。
 
 ### 启动命令
 
@@ -175,6 +176,7 @@ $env:PORT = '3000'; npm run start   # CMD 用 set PORT=3000 && npm run start
 50. **已解决（第 52 轮）**：第 51 轮的 HTTPS 凭据缺失问题已排除；重跑推送脚本第 1 次即成功，远端 `master` 从 `9dbb10a` 前进到 `a0648b4`，本地 5 个待推提交全部送达。
 51. **已解决（第 52 轮）**：`user.name=jaytwins1109-gif` / `user.email=jaytwins1109@gmail.com` 已配置并用于提交署名；推送脚本 `scripts/push-with-retry.ps1` 已验证成功路径与全失败路径，后续可继续复用。
 52. **已解决（第 53 轮）**：知识库上传/删除后端已限定工程师，技术员 UI 只读且直连 API 403；本轮无新增待办。
+53. **已解决（第 54 轮）**：Query Token、CORS 全开、无限流三项安全隐患均已修复并 E2E 验证；前端附件/预览本就使用 Bearer + blob，无需改动。
 
 ---
 
@@ -1664,3 +1666,66 @@ RESTORE_OK=true  RESTORE_EXIT=0
 **未验证 / 未执行（如实）**：未测试 admin 角色（本项目 UserRole 仅 engineer/technician）；未测试未登录用户访问 GET/raw（沿用既有 `requireAuth`）；未做浏览器人工观感点测。
 
 **遗留问题 / 需人工确认**：无；见未解决问题第 52 项（已解决）。
+
+---
+
+### 第 54 轮 · 2026-11-28 — 安全加固：移除 Query Token、收紧 CORS、增加 API 限流
+
+**用户要求**：任务一删除 `requireAuth` 中 `req.query.token` 读取，只允许 `Authorization: Bearer <token>`，确认前端附件下载/预览无需改动；任务二把 `app.use(cors())` 改为只允许本机/局域网来源；任务三安装 `express-rate-limit`，全局 `/api` 300 次/分钟、登录 5 次/分钟。交付要求 `tsc --noEmit` + `npm run build`，Playwright 验证第 6 次错误密码返回 429，且登录/对话/图片上传/PDF 预览回归正常，最后 commit/push。
+
+**实际改动文件**：
+- `server/src/middleware/auth.ts`：删除 `req.query.token` 分支，`getUserByToken` 只接收 `tokenFromHeader(req.headers.authorization)`；`requireRole` 复用同一入口，自动受益。
+- `server/src/index.ts`：引入 `rateLimit`；CORS 回调按用户给定白名单正则放行无 Origin、`localhost` / `127.0.0.1` / `192.168.x.x` / `10.x.x.x`，其它来源 `callback(new Error('受 CORS 限制，不允许访问'))`；新增 `apiLimiter`（300/分钟）与 `loginLimiter`（5/分钟），统一用 `fail(..., 429, 429)` 返回 JSON。
+- `server/package.json` / `server/package-lock.json`：`npm install express-rate-limit` 引入 `^8.7.5`（纯 JS，无本地编译依赖）。
+- `client/e2e/r54-security-e2e.mjs`（新）：双阶段 E2E——阶段 A 验证 6 次错误密码、CORS、Query Token；重启服务清空限流计数后阶段 B 用 Playwright Edge 回归登录/对话/图片上传/PDF 预览。
+- `PROJECT_LOG.md`：摘要、未解决清单第 53 项与本条记录。
+- **未改**：前端附件下载/预览代码（源码搜索确认仅 `CODEBUDDY.md` / 历史日志出现 `?token=`，实际前端全部 Bearer + blob）；数据库、四类配置表、检索打分。
+
+**关键实现思路与原因**：Token 只从 Header 读取，直接消灭浏览器历史和访问日志泄漏面；CORS 白名单只放内网段，遵循内网单端口部署约束；登录限流单独挂在 `/api/auth/login` 且位于全局限流之后，两者互不影响语义——第 6 次错误密码由 loginLimiter 返回 429。E2E 分两阶段重启服务，是为了避免阶段 A 的 6 次登录计数污染阶段 B 的正常登录。
+
+**实际验证过的命令与结果（四段式）**：
+
+1. **测什么**：服务端类型检查与全量构建。
+   **怎么测**：`cd server && npx tsc --noEmit`；`cd .. && npm run build`。
+   **实际输出**：`npx tsc --noEmit` 无输出、`exitCode=0`；`npm run build` → server `tsc` 无错误，client `✓ 58 modules transformed`、`CSS 35.75 kB`、`JS 362.31 kB`、`✓ built in 1.80s`、`exitCode=0`；`read_lints` 对 2 个改动源码文件 0 错误。
+   **结论**：通过。
+2. **测什么**：限流、CORS、Token 与既有功能是否按预期工作。
+   **怎么测**：`cd client && node e2e/r54-security-e2e.mjs`。独立副本 + TMPR54ENG + 生产入口 PORT=30154 + Edge 通道；阶段 A 直接发 API，阶段 B 重启服务后用浏览器操作。
+   **实际输出（首轮 PDF 夹具路径与 iframe title 定位写错，已修正并重跑）**：
+   ```text
+   WRONG_LOGIN_1..5={"status":200,"code":1,"message":"工号或密码不正确"}
+   WRONG_LOGIN_6={"status":429,"code":429,"message":"登录请求过于频繁，请稍后再试"}
+   ASSERT_1_LOGIN_429_ON_6TH=true
+   CORS_LOCAL={"status":200,"allow":"http://localhost:30154"}
+   CORS_EVIL={"status":500,"message":"受 CORS 限制，不允许访问"}
+   ASSERT_2_CORS_RESTRICTED=true
+   QUERY_TOKEN_AUTH={"status":401}
+   BEARER_AUTH={"status":200,"code":0}
+   ASSERT_3_QUERY_TOKEN_REJECTED=true
+   CHAT={"code":0,"intent":"chitchat","cases":0}
+   ASSERT_4_CHAT_OK=true
+   IMAGE_UPLOAD={"code":0,"file_type":"image","docsBefore":2,"docsAfter":3}
+   ASSERT_5_IMAGE_UPLOAD_OK=true
+   PDF_RAW_PRE={"id":3,"status":200,"contentType":"application/pdf"}
+   PDF_PREVIEW={"iframe":1,"blobSrc":"blob:http://127.0.0.1:30154/743f294f-7c76-4cc1-8d27-ad6ffb1cc7c9#toolbar=1","rawStatus":200,"contentType":"application/pdf"}
+   ASSERT_6_PDF_PREVIEW_OK=true
+   ALL_ASSERTIONS=[true,true,true,true,true,true]
+   E2E_PASS=true
+   FINAL_CONSOLE_ERRORS=[]
+   COPY_DIR_DELETED=true
+   TMP_ACCOUNT_SCRIPT_DELETED=true
+   ```
+   首轮失败原因：账号脚本用 `process.cwd()`（仓库根）写 PDF 夹具，而服务 cwd 是副本目录，raw 返回 404； iframe `title` 绑定的是 `file_name` 而非标题。已分别改为由 `REPAIR_DB_PATH` 推导副本根目录、按 `r54-fixture.pdf` 定位，并清理了误写到仓库根的夹具文件。
+   **结论**：六条断言全部通过，未破坏现有功能。
+3. **测什么**：测试隔离与红线。
+   **怎么测**：`verify-copy.mjs --db=<副本绝对路径>`；账号脚本受 `verify-guard.mjs` 守卫；finally 删除副本与账号脚本。
+   **实际输出**：`COPY_DIR_DELETED=true`、`TMP_ACCOUNT_SCRIPT_DELETED=true`；误写夹具 `d:\codebuddy\repair-master\uploads\2026-11\r54-fixture.pdf` 已删除；未写四类配置表、开发库零写入。
+   **结论**：通过。
+4. **测什么**：git 归档与推送。
+   **怎么测**：`git add -A` 后核对暂存区仅 5 个文件（E2E、依赖两文件、入口与鉴权源码），无数据库/附件/密钥；`git commit`，再执行推送脚本。
+   **实际输出**：本地提交 `1d32d6b`（5 files / 338 insertions / 3 deletions）；推送日志 `[10:22:55] 4bd7b1c..1d32d6b master -> master`、`推送成功：第 1 次尝试完成，exit=0`。
+   **结论**：通过，代码提交已推送到远端。
+
+**未验证 / 未执行（如实）**：未做浏览器人工观感点测；未验证 192.168.x.x / 10.x.x.x 真实局域网客户端（仅按用户给定正则验证 localhost 允许、恶意域名拒绝）；未验证全局限流 300 次边界（只验证 loginLimiter 5 次边界）；未验证 IPv6 来源（正则按用户要求仅 http IPv4）。
+
+**遗留问题 / 需人工确认**：无；见未解决问题第 53 项（已解决）。
