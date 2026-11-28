@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requireRole } from '../middleware/auth';
 import {
   detectKnowledgeType,
   knowledgeUploadErrorToMessage,
@@ -24,7 +24,7 @@ router.use(requireAuth);
 
 router.get('/knowledge-categories', (_req, res) => ok(res, listKnowledgeCategories()));
 
-router.post('/knowledge-docs', (req, res, next) => {
+router.post('/knowledge-docs', requireRole('engineer'), (req, res, next) => {
   uploadKnowledge.single('file')(req, res, (error: any) => {
     if (error) return fail(res, knowledgeUploadErrorToMessage(error));
     return next();
@@ -74,13 +74,10 @@ router.get('/knowledge-docs/:id/raw', (req, res) => {
   }
 });
 
-router.delete('/knowledge-docs/:id', (req, res) => {
+router.delete('/knowledge-docs/:id', requireRole('engineer'), (req, res) => {
   try {
     const row = getKnowledgeDoc(req.params.id);
     if (!row) return fail(res, '文档不存在', 404, 404);
-    if (req.user!.role !== 'engineer' && row.uploader !== req.user!.name) {
-      return fail(res, '只能删除自己上传的文档', 403, 403);
-    }
     deleteKnowledgeDoc(row);
     return ok(res, { id: row.id }, '文档已删除');
   } catch (e: any) {

@@ -15,7 +15,8 @@ function formatSize(size: number) {
 }
 
 export function KnowledgePage() {
-  const { isAdmin } = useRole();
+  const { role } = useRole();
+  const canManageKnowledge = role === 'engineer';
   const toast = useToast();
   const [allDocs, setAllDocs] = useState<KnowledgeDoc[]>([]);
   const [docs, setDocs] = useState<KnowledgeDoc[]>([]);
@@ -157,7 +158,7 @@ export function KnowledgePage() {
             共 <b className="mx-1 font-mono text-[15px] text-ink">{docs.length}</b> 篇文档
           </div>
           <div className="flex-1" />
-          {!isAdmin && (
+          {!canManageKnowledge && (
             <span className="rounded bg-[#EFECE5] px-2.5 py-1 text-[11px] text-[#6E7680]">当前账号为只读权限</span>
           )}
           <input
@@ -166,7 +167,7 @@ export function KnowledgePage() {
             placeholder="搜索标题 / 文件名…"
             className="w-[240px] rounded-lg border border-line bg-surface px-3 py-[9px] text-[12px] text-ink outline-none focus:border-accent focus:ring-4 focus:ring-accent/10"
           />
-          {isAdmin && (
+          {canManageKnowledge && (
             <button
               type="button"
               onClick={() => setUploadOpen(true)}
@@ -222,7 +223,7 @@ export function KnowledgePage() {
                           <button type="button" onClick={() => download(doc)} className="text-[11.5px] text-accent hover:underline">
                             下载
                           </button>
-                          {isAdmin && (
+                          {canManageKnowledge && (
                             <button type="button" onClick={() => void remove(doc)} className="text-[11.5px] text-bad hover:underline">
                               删除
                             </button>
