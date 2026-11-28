@@ -80,6 +80,7 @@
 - **技术知识库图片支持（第 50 轮）**：后端上传放宽到 png/jpg/jpeg/webp 并复用 magic bytes 校验，图片 `file_type` 统一存 `image`；前端提示与 `accept` 加入图片，预览抽成共享 `ZoomImagePreview`（滚轮缩放+拖拽平移）供知识库与机型图纸复用；另修复截图里案例上传「品牌+型号」选项被误判未知机型的问题。Playwright 上传 PNG 到「上电时序」并验证大图缩放/拖拽、案例上传校验均通过。
 - **chitchat 渲染修复与推送重试（第 51 轮）**：`ChatPage.tsx` 只允许检索类意图渲染案例卡片、「未找到」兜底与弱相关列表，`chitchat` 绝不渲染；Playwright 断言输入「你是谁」后页面不含「知识库中未找到相似案例」。新增 `scripts/push-with-retry.ps1`（最多 5 次、每次间隔 2 秒、成功即停），已执行并贴出真实日志。
 - **推送成功（第 52 轮）**：重跑 `scripts/push-with-retry.ps1`，第 1 次即成功，`9dbb10a..a0648b4 master -> master`；`git ls-remote origin refs/heads/master` 与本地 HEAD 同为 `a0648b4d0e0c2f3b153d0593596eee8120428195`，工作区干净。
+- **知识库角色收紧（第 53 轮）**：`POST /api/knowledge-docs` 与 `DELETE /api/knowledge-docs/:id` 加 `requireRole('engineer')`，技术员调用返回 403；前端按 `role === 'engineer'` 控制上传/删除按钮，技术员只保留预览/下载。双角色 Playwright E2E 全部通过，`5954b92..176b750 master -> master` 推送成功。
 
 ### 启动命令
 
@@ -173,6 +174,7 @@ $env:PORT = '3000'; npm run start   # CMD 用 set PORT=3000 && npm run start
 49. **已解决（第 48/49 轮）**：模型配置弹窗已限高并加内部滚动条；当前副本已 `git init`、首次 commit 清单已贴用户，第 49 轮按用户明确授权完成本地提交 `259889b`。
 50. **已解决（第 52 轮）**：第 51 轮的 HTTPS 凭据缺失问题已排除；重跑推送脚本第 1 次即成功，远端 `master` 从 `9dbb10a` 前进到 `a0648b4`，本地 5 个待推提交全部送达。
 51. **已解决（第 52 轮）**：`user.name=jaytwins1109-gif` / `user.email=jaytwins1109@gmail.com` 已配置并用于提交署名；推送脚本 `scripts/push-with-retry.ps1` 已验证成功路径与全失败路径，后续可继续复用。
+52. **已解决（第 53 轮）**：知识库上传/删除后端已限定工程师，技术员 UI 只读且直连 API 403；本轮无新增待办。
 
 ---
 
@@ -1603,3 +1605,62 @@ RESTORE_OK=true  RESTORE_EXIT=0
 **未验证 / 未执行（如实）**：未测试其他远端分支；未重新执行编译或 E2E（本轮仅 git 推送与日志）；未使用用户已有会话或触碰数据库/配置表。
 
 **遗留问题 / 需人工确认**：无新增问题；第 50/51 项已关闭。
+
+---
+
+### 第 53 轮 · 2026-11-28 — 技术知识库角色收紧：仅工程师可上传/删除
+
+**用户要求**：技术知识库属权威资料，不走案例审核流，但必须只有工程师可上传和删除，技术员只能查看/下载。后端给上传/删除接口加 `requireRole('engineer')`，技术员返回 403；前端按当前用户角色隐藏上传与删除按钮；build + 双角色 Playwright 验证 + commit/push。
+
+**实际改动文件**：
+- `server/src/routes/knowledgeDocs.ts`：导入 `requireRole`；`POST /knowledge-docs` 与 `DELETE /knowledge-docs/:id` 加 `requireRole('engineer')`；删除路由移除已被中间件覆盖的旧「上传者本人或工程师」判断，改为所有工程师均可删除。
+- `client/src/pages/KnowledgePage.tsx`：由 `const { role } = useRole()` 显式计算 `canManageKnowledge = role === 'engineer'`，只读提示、上传按钮、删除按钮统一用该变量控制；预览/下载对所有登录角色保留。
+- `client/e2e/r53-knowledge-role-e2e.mjs`（新）：独立副本 + TMPR53ENG/TMPR53TECH 两个临时账号 + Edge 通道双角色 E2E。
+- `PROJECT_LOG.md`：摘要、未解决清单第 52 项与本条记录。
+- **未改**：四类配置表、开发库业务数据、知识库 GET/raw 接口、图片上传 magic bytes 逻辑、检索打分。
+
+**关键实现思路与原因**：`requireRole('engineer')` 内部先走 `requireAuth` 再比较 `req.user.role`，未登录 401、非工程师 403，复用仓库既有鉴权模式，不新造中间件；前端以服务端同一份 `role` 字段做展示控制，UI 隐藏只是体验，真正防线在后端。删除权限从「本人或工程师」改为「所有工程师」，符合权威资料统一维护的诉求；技术员仍可列表/预览/下载。
+
+**实际验证过的命令与结果（四段式）**：
+
+1. **测什么**：改动能否完整编译。
+   **怎么测**：`npm run build` + `read_lints`。
+   **实际输出**：server `tsc` 无错误；client `✓ 58 modules transformed`、`CSS 35.75 kB`、`JS 362.31 kB`、`✓ built in 2.13s`、`exitCode=0`；2 个源码文件 0 lint 错误。
+   **结论**：通过。
+2. **测什么**：工程师能上传、技术员 UI 只读且后端拒绝越权。
+   **怎么测**：`cd client && node e2e/r53-knowledge-role-e2e.mjs`，PORT=30153，独立库副本，两个 TMP 账号分别用独立浏览器上下文登录（未使用用户账号、未登出）。
+   **实际输出**：
+   ```text
+   DOCS_BEFORE=1
+   ENGINEER_UPLOAD_BUTTON=1
+   ENGINEER_UPLOAD={"code":0,"id":3,"file_type":"image"}
+   DOCS_AFTER=2
+   ENGINEER_DELETE_BUTTON=1
+   ASSERT_1_ENGINEER_CAN_UPLOAD=true
+   TECHNICIAN_UPLOAD_BUTTON=0
+   TECHNICIAN_ACTIONS={"preview":1,"download":1,"delete":0}
+   TECHNICIAN_READONLY_HINT=1
+   ASSERT_2_TECHNICIAN_UI_HIDDEN=true
+   TECHNICIAN_API_UPLOAD={"status":403,"code":403,"message":"当前账号无权限执行此操作"}
+   TECHNICIAN_API_DELETE={"status":403,"code":403,"message":"当前账号无权限执行此操作"}
+   DOCS_AFTER_HACK=2
+   ASSERT_3_TECHNICIAN_API_403=true
+   ALL_ASSERTIONS=[true,true,true]
+   E2E_PASS=true
+   FINAL_CONSOLE_ERRORS=[]
+   COPY_DIR_DELETED=true
+   TMP_ACCOUNT_SCRIPT_DELETED=true
+   ```
+   **结论**：三条断言全部通过；工程师上传后文档数 1→2，技术员直连上传/删除均 403 且文档数未变。
+3. **测什么**：测试隔离。
+   **怎么测**：`verify-copy.mjs --db=<副本绝对路径>` + 临时账号脚本受 `verify-guard.mjs` 守卫，finally 删除副本与账号脚本。
+   **实际输出**：`COPY_DIR_DELETED=true`、`TMP_ACCOUNT_SCRIPT_DELETED=true`；未写四类配置表、开发库零写入。
+   **结论**：通过。
+4. **测什么**：git 归档与推送。
+   **怎么测**：`git add -A` 后核对暂存区仅 3 个文件（无数据库/附件/密钥），`git commit`，再单独执行推送脚本。
+   **实际输出**：本地提交 `176b750`（3 files / 209 insertions / 10 deletions）；推送日志 `[09:58:29] 5954b92..176b750 master -> master`、`推送成功：第 1 次尝试完成，exit=0`。
+   **结论**：通过，本轮代码提交已推送到远端。
+
+**未验证 / 未执行（如实）**：未测试 admin 角色（本项目 UserRole 仅 engineer/technician）；未测试未登录用户访问 GET/raw（沿用既有 `requireAuth`）；未做浏览器人工观感点测。
+
+**遗留问题 / 需人工确认**：无；见未解决问题第 52 项（已解决）。
